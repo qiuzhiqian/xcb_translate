@@ -1,0 +1,14 @@
+= XCB 文档翻译
+
+个人在查阅XCB(X protocol C-language Binding)的文档时，发现 https://xcb.freedesktop.org/[官方]文档都只有英文本版。为了加深自己的理解，所以试着一边查阅一边翻译。
+
+本文旨在对XCB官方文档进行中文翻译，翻译均有个人完成。由于本人非英文专业，翻译纯靠个人的语义理解转换成中文。如果一些陌生单词或短语，我回借助谷歌翻译。
+
+本文所有涉及的文档均来自XCB官方或者被XCB官方引用
+
+所有文档均是用Asciidoc排版，包括英文原文也由本人手动转换成了Asciidoc格式。Asciidoc语法请参考 http://asciidoc.org/[Asciidoc官网]
+
+== 开始阅读
+-> link:en/tutorial.adoc[英文]
+
+-> link:zh/tutorial.adoc[中文]

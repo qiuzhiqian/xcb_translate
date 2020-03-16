@@ -1,0 +1,462 @@
+= 窗口基础与绘制
+
+== 创建一个基本的窗体 - "hello world"程序
+
+在我们获取到了屏幕(screen)的一些基本信息后，我们就能够创建我们的第一个窗体。在X窗口系统中，一个窗口使用一个id来表示。因此，在XCB中，一个窗口的类型是：
+[source.c]
+....
+typedef uint32_t xcb_window_t;
+....
+
+我们首先通过下面的函数为我们的窗口申请一个新的id：
+[source.c]
+....
+xcb_window_t xcb_generate_id (xcb_connection_t *connection);
+....
+
+然后XCB提供了下面的这个函数来创建一个新窗体：
+[source.c]
+....
+xcb_void_cookie_t xcb_create_window (xcb_connection_t *connection,    /* Pointer to the xcb_connection_t structure */
+                                        uint8_t           depth,         /* Depth of the screen */
+                                        xcb_window_t      wid,           /* Id of the window */
+                                        xcb_window_t      parent,        /* Id of an existing window that should be the parent of the new window */
+                                        int16_t           x,             /* X position of the top-left corner of the window (in pixels) */
+                                        int16_t           y,             /* Y position of the top-left corner of the window (in pixels) */
+                                        uint16_t          width,         /* Width of the window (in pixels) */
+                                        uint16_t          height,        /* Height of the window (in pixels) */
+                                        uint16_t          border_width,  /* Width of the window's border (in pixels) */
+                                        uint16_t          _class,
+                                        xcb_visualid_t    visual,
+                                        uint32_t          value_mask,
+                                        const uint32_t   *value_list );
+....
+事实上我们创建了一个窗口后并不代表着这个窗口就会被绘制到桌面上。默认情况下，新创建的窗口是不会映射到到屏幕上(也就是不可见)。为了让我们的窗口可见，我们需要使用xcb_map_window()函数。这个函数的声明是这样的：
+[source.c]
+....
+xcb_void_cookie_t xcb_map_window (xcb_connection_t  *connection,
+                                    xcb_window_t       window );
+....
+
+最后，在这儿提供一份小的程序实例，这个实例会在屏幕左上角的位置创建一个大小微150x150像素的窗口：
+[source.c]
+....
+#include <unistd.h>      /* pause() */
+
+#include <xcb/xcb.h>
+
+int
+main ()
+{
+    /* Open the connection to the X server */
+    xcb_connection_t *connection = xcb_connect (NULL, NULL);
+
+
+    /* Get the first screen */
+    const xcb_setup_t      *setup  = xcb_get_setup (connection);
+    xcb_screen_iterator_t   iter   = xcb_setup_roots_iterator (setup);
+    xcb_screen_t           *screen = iter.data;
+
+
+    /* Create the window */
+    xcb_window_t window = xcb_generate_id (connection);
+    xcb_create_window (connection,                    /* Connection          */
+                        XCB_COPY_FROM_PARENT,          /* depth (same as root)*/
+                        window,                        /* window Id           */
+                        screen->root,                  /* parent window       */
+                        0, 0,                          /* x, y                */
+                        150, 150,                      /* width, height       */
+                        10,                            /* border_width        */
+                        XCB_WINDOW_CLASS_INPUT_OUTPUT, /* class               */
+                        screen->root_visual,           /* visual              */
+                        0, NULL );                     /* masks, not used yet */
+
+
+    /* Map the window on the screen */
+    xcb_map_window (connection, window);
+
+
+    /* Make sure commands are sent before we pause so that the window gets shown */
+    xcb_flush (connection);
+
+
+    pause ();    /* hold client until Ctrl-C */
+
+    xcb_disconnect (connection);
+
+    return 0;
+}
+....
+在这段代码中，你会看到一个前面没有解释过的新函数 - xcb_flush()。这个函数用来刷新所有正在等待处理的请求。更确切的说，其实有两个函数都能实现这样的功能，而第一个就是xcb_flush()：
+[source.c]
+....
+int xcb_flush (xcb_connection_t *c);
+....
+这个函数会刷新所有正处于等待状态的发往X服务器(X server)的请求。另外一个函数就是xcb_aux_sync():
+[source.c]
+....
+int xcb_aux_sync (xcb_connection_t *c);
+....
+这个函数同样能够刷新所有处于等待状态的发送给X服务器的请求，然后函数会等待，直到服务器处理完这些请求为止。在常规的程序中，我们并不需要这样做(在我们开始写常规的X程序时我们就能发现不需要这么做的原因了)，但是现在，我们需要将它写在那个地方。
+
+通过上面的代码创建的窗口是没有定义背景的。利用xcb_create_window()的最后两个参数，我们可以给窗口指定一种颜色，这两个参数我们还没有解释过具体的含义。有关如何使用这些参数的示例，请参见“配置窗口”或“使用事件掩码注册事件类型”小节。另外，由于没有任何事件会处理，因此你必须使用Ctrl-C才能终止程序的运行。
+
+TODO: 应该告诉这个函数的返回值和常见的错误相关的内容。
+
+Xlib和XCB的比较:
+- XCreateWindow () =>
+[source.c]
+....
+xcb_generate_id ()
+xcb_create_window ()
+....
+
+== 在窗口里面绘图
+可以使用各种图形函数（绘制像素，线条，矩形等）在窗口中绘制。 为了在窗口中绘制，我们首先需要定义各种常规的绘制参数（要使用的线宽，绘制的颜色等）。 这些是使用图形上下文来完成的。
+
+=== 1. 分配图形上下文
+正如我们所说，图形上下文定义了几种可与各种绘图函数一起使用的属性。 为此，我们定义了一个图形上下文。 我们可以在一个窗口中使用多个图形上下文，以便绘制多种样式（不同的颜色，不同的线宽等）。 在XCB中，图形上下文作为一个窗口，以ID来表示：
+[source.c]
+....
+typedef uint32_t xcb_gcontext_t;
+....
+我们首先会通过下面这个函数来向X服务器请求分配一个Id给我们的图形上下文：
+[source.c]
+....
+xcb_gcontext_t xcb_generate_id (xcb_connection_t *c);
+....
+然后我们通过下面这个函数来设置图形上下文中的属性：
+[source.c]
+....
+xcb_void_cookie_t xcb_create_gc (xcb_connection_t *c,
+                                    xcb_gcontext_t    cid,
+                                    xcb_drawable_t    drawable,
+                                    uint32_t          value_mask,
+                                    const uint32_t   *value_list );
+....
+现在，我们给出一个示例，说明如何分配图形上下文，该上下文指定每个绘制函数将在前景上使用黑色进行绘图。
+[source.c]
+....
+#include <xcb/xcb.h>
+
+int
+main ()
+{
+    /* Open the connection to the X server and get the first screen */
+    xcb_connection_t *connection = xcb_connect (NULL, NULL);
+    xcb_screen_t     *screen     = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
+
+    /* Create a black graphic context for drawing in the foreground */
+    xcb_drawable_t  window   = screen->root;
+    xcb_gcontext_t  black    = xcb_generate_id (connection);
+    uint32_t        mask     = XCB_GC_FOREGROUND;
+    uint32_t        value[]  = { screen->black_pixel };
+
+    xcb_create_gc (connection, black, window, mask, value);
+
+    return 0;
+}
+....
+在xcb_create_gc（）的原型中，应注意"valuemask"和"valuelist"的作用。 由于图形上下文具有许多属性，并且由于我们通常只想定义其中一些属性，因此我们需要能够告诉xcb_create_gc（）我们要设置哪些属性。 这就是“ valuemask”参数的作用。 然后，我们使用“值列表”参数为我们在“值掩码”中定义的属性指定实际值。 因此，对于“ valuelist”中使用的每个常量，我们将在“ value_mask”中使用匹配的常量。 在这种情况下，我们定义一个这样属性的图形上下文：：绘制（点，线等）时，前景色为黑色。 此图形上下文的其余属性将设置为其默认值。
+详细内容请查看下一小节。
+
+Xlib和XCB相比较:
+- XCreateGC () =>
+[source.c]
+....
+xcb_generate_id ()
+xcb_create_gc ()
+....
+
+=== 2. 改变图形上下文的属性
+一旦我们创建了一个图形上下文后，我们可能就需要改变它的属性(例如，改变用来绘制直线的前景颜色，或者改变用来显示文字的字体属性，请参见“用颜色绘制和为图形上下文分配字体”小节),通过调用下面这个函数来完成这个功能：
+[source.c]
+....
+xcb_void_cookie_t xcb_change_gc (xcb_connection_t *c,            /* The XCB Connection */
+                                    xcb_gcontext_t    gc,           /* The Graphic Context */
+                                    uint32_t          value_mask,   /* Components of the Graphic Context that have to be set */
+                                    const uint32_t   *value_list ); /* Value as specified by value_mask */
+....
+valuemask参数可以是由xcb_gc_t枚举类型任意组合成的一个掩码值，xcb_gc_t枚举定义如下：
+....
+XCB_GC_FUNCTION
+XCB_GC_PLANE_MASK
+XCB_GC_FOREGROUND
+XCB_GC_BACKGROUND
+XCB_GC_LINE_WIDTH
+XCB_GC_LINE_STYLE
+XCB_GC_CAP_STYLE
+XCB_GC_JOIN_STYLE
+XCB_GC_FILL_STYLE
+XCB_GC_FILL_RULE
+XCB_GC_TILE
+XCB_GC_STIPPLE
+XCB_GC_TILE_STIPPLE_ORIGIN_X
+XCB_GC_TILE_STIPPLE_ORIGIN_Y
+XCB_GC_FONT
+XCB_GC_SUBWINDOW_MODE
+XCB_GC_GRAPHICS_EXPOSURES
+XCB_GC_CLIP_ORIGIN_X
+XCB_GC_CLIP_ORIGIN_Y
+XCB_GC_CLIP_MASK
+XCB_GC_DASH_OFFSET
+XCB_GC_DASH_LIST
+XCB_GC_ARC_MODE
+....
+通过在值掩码中对这些值进行“或”运算，可以同时设置多个属性（例如，设置将用于显示字符串的字体和颜色的属性）。另外，valuelist必须是一个数组值，里面存放着各个属性的值。这些值的顺序必须和上面掩码里表的顺序一致。请查阅使用颜色绘图小节来获取示例。
+
+TODO: 设置这三个小节的链接，之后再写:)
+
+TODO: 给出一个设置多个属性的例子。
+
+=== 3. 绘制基本图形：点、线、方框、圆形...
+我们创建一个图形上下文之后，我们就可以利用这个图形上下文设置XCB的函数在窗口上绘图。这些函数统称为基本绘图函数，让我们来看看如何使用这几个函数：
+为了绘制一个点或者多个点，我们可以这样使用：
+[source.c]
+....
+xcb_void_cookie_t xcb_poly_point (xcb_connection_t  *c,               /* The connection to the X server */
+                                    uint8_t            coordinate_mode, /* Coordinate mode, usually set to XCB_COORD_MODE_ORIGIN */
+                                    xcb_drawable_t     drawable,        /* The drawable on which we want to draw the point(s) */
+                                    xcb_gcontext_t     gc,              /* The Graphic Context we use to draw the point(s) */
+                                    uint32_t           points_len,      /* The number of points */
+                                    const xcb_point_t *points );         /* An array of points */
+....
+coordinate_mode参数指定了坐标模式，可取的值为：
+....
+XCB_COORD_MODE_ORIGIN
+XCB_COORD_MODE_PREVIOUS
+....
+如果使用了XCB_COORD_MODE_PREVIOUS，那么除了第一个点外，所有的点(的坐标)均是相对自己前面应紧挨着的一个点而言的。
+xcb_point_t类型是一个只有两个字段(点的坐标值)的结构体：
+[source.c]
+....
+typedef struct {
+    int16_t x;
+    int16_t y;
+} xcb_point_t;
+....
+我们在xpoints.c中找到一个使用例子。TODO 需要给出链接。
+要绘制一条直线或者折线，我们可以这样：
+[source.c]
+....
+xcb_void_cookie_t xcb_poly_line (xcb_connection_t  *c,               /* The connection to the X server */
+                                    uint8_t            coordinate_mode, /* Coordinate mode, usually set to XCB_COORD_MODE_ORIGIN */
+                                    xcb_drawable_t     drawable,        /* The drawable on which we want to draw the line(s) */
+                                    xcb_gcontext_t     gc,              /* The Graphic Context we use to draw the line(s) */
+                                    uint32_t           points_len,      /* The number of points in the polygonal line */
+                                    const xcb_point_t *points );        /* An array of points */
+....
+这个函数会在第一个点后第二个点之间绘制一条直线，然后在第二个点和第三个点之间绘制一条直线，依次类推。
+
+为了绘制一个或者多个线段，我们可以这样：
+[source.c]
+....
+xcb_void_cookie_t xcb_poly_segment (xcb_connection_t    *c,              /* The connection to the X server */
+                                    xcb_drawable_t       drawable,       /* The drawable on which we want to draw the segment(s) */
+                                    xcb_gcontext_t       gc,             /* The Graphic Context we use to draw the segment(s) */
+                                    uint32_t             segments_len,   /* The number of segments */
+                                    const xcb_segment_t *segments );     /* An array of segments */
+....
+xcb_segment_t类型仅仅是一个拥有四个字段(这个线段所定义的两个点的坐标)的结构体：
+[source.c]
+....
+typedef struct {
+    int16_t x1;
+    int16_t y1;
+    int16_t x2;
+    int16_t y2;
+} xcb_segment_t;
+....
+要绘制一个或者多个矩形，我们可以这样：
+[source.c]
+....
+xcb_void_cookie_t xcb_poly_rectangle (xcb_connection_t      *c,              /* The connection to the X server */
+                                        xcb_drawable_t         drawable,       /* The drawable on which we want to draw the rectangle(s) */
+                                        xcb_gcontext_t         gc,             /* The Graphic Context we use to draw the rectangle(s) */
+                                        uint32_t               rectangles_len, /* The number of rectangles */
+                                        const xcb_rectangle_t *rectangles );   /* An array of rectangles */
+....
+xcb_rectangle_t仅仅是一个拥有四个字段(矩形的左上角点的坐标和矩形宽度一个矩形长度)的结构体：
+[source.c]
+....
+typedef struct {
+    int16_t  x;
+    int16_t  y;
+    uint16_t width;
+    uint16_t height;
+} xcb_rectangle_t;
+....
+为了绘制一个或者多个椭圆弧线，我们可以这样：
+[source.c]
+....
+xcb_void_cookie_t xcb_poly_arc (xcb_connection_t *c,          /* The connection to the X server */
+                                xcb_drawable_t    drawable,   /* The drawable on which we want to draw the arc(s) */
+                                xcb_gcontext_t    gc,         /* The Graphic Context we use to draw the arc(s) */
+                                uint32_t          arcs_len,   /* The number of arcs */
+                                const xcb_arc_t  *arcs );     /* An array of arcs */
+....
+xcb_arc_t是一个拥有6个字段的结构体：
+[source.c]
+....
+typedef struct {
+    int16_t  x;       /* Top left x coordinate of the rectangle surrounding the ellipse */
+    int16_t  y;       /* Top left y coordinate of the rectangle surrounding the ellipse */
+    uint16_t width;   /* Width of the rectangle surrounding the ellipse */
+    uint16_t height;  /* Height of the rectangle surrounding the ellipse */
+    int16_t  angle1;  /* Angle at which the arc begins */
+    int16_t  angle2;  /* Angle at which the arc ends */
+} xcb_arc_t;
+....
+注意：角度以1/64度的单位表示，因此具有90度的角度，从0开始，angle1 = 0且angle2 = 90 <<6。正角度表示逆时针运动，而负角度表示顺时针运动 。
+
+下面我们会介绍填充几何图形内部的相关函数。后面我们不再详细说明这些函数了。因为它们的作用就是上面说的这些了。
+
+为了填充一个由点定义的多边形，我们可以这样：
+[source.c]
+....
+xcb_void_cookie_t xcb_fill_poly (xcb_connection_t  *c,
+                                    xcb_drawable_t     drawable,
+                                    xcb_gcontext_t     gc,
+                                    uint8_t            shape,
+                                    uint8_t            coordinate_mode,
+                                    uint32_t           points_len,
+                                    const xcb_point_t *points );
+....
+shape参数指定了一个形状值，这个值的设定有助于提高服务端的性能。shape参数可取的值有：
+....
+XCB_POLY_SHAPE_COMPLEX
+XCB_POLY_SHAPE_NONCONVEX
+XCB_POLY_SHAPE_CONVEX
+....
+为了填充一个或者多个矩形，我们可以这样：
+[source.c]
+....
+xcb_void_cookie_t xcb_poly_fill_rectangle (xcb_connection_t      *c,
+                                            xcb_drawable_t         drawable,
+                                            xcb_gcontext_t         gc,
+                                            uint32_t               rectangles_len,
+                                            const xcb_rectangle_t *rectangles );
+....
+为了填充一个或者多个弧线，我们可以这样：
+[source.c]
+....
+xcb_void_cookie_t xcb_poly_fill_arc (xcb_connection_t *c,
+                                        xcb_drawable_t    drawable,
+                                        xcb_gcontext_t    gc,
+                                        uint32_t          arcs_len,
+                                        const xcb_arc_t  *arcs );
+....
+为了说明这些函数，我在这个地方留一个实例。这个实例会绘制四个点，一条折线，两个线段，两个矩形，两个弧线。请注意我们此处第一次使用了事件(events)，事件在下一节会做说明。
+TODO: 使用screen-> root_depth来作为depth参数。
+[source.c]
+....
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <xcb/xcb.h>
+
+int
+main ()
+{
+    /* geometric objects */
+    xcb_point_t          points[] = {
+        {10, 10},
+        {10, 20},
+        {20, 10},
+        {20, 20}};
+
+    xcb_point_t          polyline[] = {
+        {50, 10},
+        { 5, 20},     /* rest of points are relative */
+        {25,-20},
+        {10, 10}};
+
+    xcb_segment_t        segments[] = {
+        {100, 10, 140, 30},
+        {110, 25, 130, 60}};
+
+    xcb_rectangle_t      rectangles[] = {
+        { 10, 50, 40, 20},
+        { 80, 50, 10, 40}};
+
+    xcb_arc_t            arcs[] = {
+        {10, 100, 60, 40, 0, 90 << 6},
+        {90, 100, 55, 40, 0, 270 << 6}};
+
+
+    /* Open the connection to the X server */
+    xcb_connection_t *connection = xcb_connect (NULL, NULL);
+
+    /* Get the first screen */
+    xcb_screen_t *screen = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
+
+    /* Create black (foreground) graphic context */
+    xcb_drawable_t  window     = screen->root;
+    xcb_gcontext_t  foreground = xcb_generate_id (connection);
+    uint32_t        mask       = XCB_GC_FOREGROUND | XCB_GC_GRAPHICS_EXPOSURES;
+    uint32_t        values[2]  = {screen->black_pixel, 0};
+
+    xcb_create_gc (connection, foreground, window, mask, values);
+
+
+    /* Create a window */
+    window = xcb_generate_id (connection);
+
+    mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
+    values[0] = screen->white_pixel;
+    values[1] = XCB_EVENT_MASK_EXPOSURE;
+
+    xcb_create_window (connection,                    /* connection          */
+                        XCB_COPY_FROM_PARENT,          /* depth               */
+                        window,                        /* window Id           */
+                        screen->root,                  /* parent window       */
+                        0, 0,                          /* x, y                */
+                        150, 150,                      /* width, height       */
+                        10,                            /* border_width        */
+                        XCB_WINDOW_CLASS_INPUT_OUTPUT, /* class               */
+                        screen->root_visual,           /* visual              */
+                        mask, values );                /* masks */
+
+
+    /* Map the window on the screen and flush*/
+    xcb_map_window (connection, window);
+    xcb_flush (connection);
+
+
+    /* draw primitives */
+    xcb_generic_event_t *event;
+    while ((event = xcb_wait_for_event (connection))) {
+        switch (event->response_type & ~0x80) {
+        case XCB_EXPOSE:
+            /* We draw the points */
+            xcb_poly_point (connection, XCB_COORD_MODE_ORIGIN, window, foreground, 4, points);
+
+            /* We draw the polygonal line */
+            xcb_poly_line (connection, XCB_COORD_MODE_PREVIOUS, window, foreground, 4, polyline);
+
+            /* We draw the segments */
+            xcb_poly_segment (connection, window, foreground, 2, segments);
+
+            /* draw the rectangles */
+            xcb_poly_rectangle (connection, window, foreground, 2, rectangles);
+
+            /* draw the arcs */
+            xcb_poly_arc (connection, window, foreground, 2, arcs);
+
+            /* flush the request */
+            xcb_flush (connection);
+
+            break;
+        default: 
+            /* Unknown event type, ignore it */
+            break;
+        }
+
+        free (event);
+    }
+
+    return 0;
+}
+....
+
+Last edited Tue 03 Dec 2013 05:20:34 AM UTC

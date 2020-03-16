@@ -1,0 +1,334 @@
+Interacting with the window manager
+After we have seen how to create windows and draw on them, we take one step back, and look at how our windows are interacting with their environment (the full screen and the other windows). First of all, our application needs to interact with the window manager. The window manager is responsible to decorating drawn windows (i.e. adding a frame, an iconify button, a system menu, a title bar, etc), as well as handling icons shown when windows are being iconified. It also handles ordering of windows on the screen, and other administrative tasks. We need to give it various hints as to how we want it to treat our application's windows.
+
+1. Window properties
+Many of the parameters communicated to the window manager are passed using data called "properties". These properties are attached by the X server to different windows, and are stored in a format that makes it possible to read them from different machines that may use different architectures (remember that an X client program may run on a remote machine).
+
+The property and its type (a string, an integer, etc) are Id. Their type are xcb_atom_t:
+
+    typedef uint32_t xcb_atom_t;
+To change the property of a window, we use the following function:
+
+    xcb_void_cookie_t xcb_change_property (xcb_connection_t *c,       /* Connection to the X server */
+                                           uint8_t          mode,     /* Property mode */
+                                           xcb_window_t     window,   /* Window */
+                                           xcb_atom_t       property, /* Property to change */
+                                           xcb_atom_t       type,     /* Type of the property */
+                                           uint8_t          format,   /* Format of the property (8, 16, 32) */
+                                           uint32_t         data_len, /* Length of the data parameter */
+                                           const void      *data);    /* Data */
+The mode parameter coud be one of the following values (defined in enumeration xcb_prop_mode_t in the xproto.h header file):
+
+    XCB_PROP_MODE_REPLACE
+    XCB_PROP_MODE_PREPEND
+    XCB_PROP_MODE_APPEND
+2. Setting the window name and icon name
+The first thing we want to do would be to set the name for our window. This is done using the xcb_change_property() function. This name may be used by the window manager as the title of the window (in the title bar), in a task list, etc. The property atom to use to set the name of a window is XCB_ATOM_WM_NAME (and XCB_ATOM_WM_ICON_NAME for the iconified window) and its type is XCB_ATOM_STRING. Here is an example of utilization:
+
+    #include <string.h>
+
+    #include <xcb/xcb.h>
+    #include <xcb/xcb_atom.h>
+
+    int
+    main ()
+    {
+        /* open the connection to the X server */
+        xcb_connection_t *connection = xcb_connect (NULL, NULL);
+
+
+        /* get the first screen */
+        xcb_screen_t *screen = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
+
+
+        /* create the window */
+
+        xcb_window_t window = xcb_generate_id (connection);
+        xcb_create_window (connection, 
+                           0,                             /* depth               */
+                           window,
+                           screen->root,                  /* parent window       */
+                           0, 0,                          /* x, y                */
+                           250, 150,                      /* width, height       */
+                           10,                            /* border_width        */
+                           XCB_WINDOW_CLASS_INPUT_OUTPUT, /* class               */
+                           screen->root_visual,           /* visual              */
+                           0, NULL );                     /* masks, not used     */
+
+
+        /* set the title of the window */
+
+        char *title = "Hello World !";
+        xcb_change_property (connection,
+                             XCB_PROP_MODE_REPLACE,
+                             window,
+                             XCB_ATOM_WM_NAME,
+                             XCB_ATOM_STRING,
+                             8,
+                             strlen (title),
+                             title );
+
+
+        /* set the title of the window icon */
+
+        char *iconTitle = "Hello World ! (iconified)";
+        xcb_change_property (connection,
+                             XCB_PROP_MODE_REPLACE,
+                             window,
+                             XCB_ATOM_WM_ICON_NAME,
+                             XCB_ATOM_STRING,
+                             8,
+                             strlen(iconTitle),
+                             iconTitle);
+
+
+        /* map the window on the screen */
+
+        xcb_map_window (connection, window);
+        xcb_flush (connection);
+
+
+        /* event loop (in this case, no events to handle) */ 
+        while (1) {}
+
+        return 0;
+    }
+Note: the use of the atoms needs our program to be compiled and linked against xcb_atom, so that we have to use
+
+    gcc prog.c -o prog `pkg-config --cflags --libs xcb-atom`
+...for the program to compile fine.
+
+Simple window operations
+One more thing we can do to our window is manipulate them on the screen (resize them, move them, raise or lower them, iconify them, and so on). Some window operations functions are supplied by XCB for this purpose.
+
+1. Mapping and un-mapping a window
+The first pair of operations we can apply on a window is mapping it, or un-mapping it. Mapping a window causes the window to appear on the screen, as we have seen in our simple window program example. Un-mapping it causes it to be removed from the screen (although the window as a logical entity still exists). This gives the effect of making a window hidden (unmapped) and shown again (mapped). For example, if we have a dialog box window in our program, instead of creating it every time the user asks to open it, we can create the window once, in an un-mapped mode, and when the user asks to open it, we simply map the window on the screen. When the user clicked the 'OK' or 'Cancel' button, we simply un-map the window. This is much faster than creating and destroying the window, however, the cost is wasted resources, both on the client side, and on the X server side.
+
+To map a window, you use the following function:
+
+    xcb_void_cookie_t xcb_map_window (xcb_connection_t *c,
+                                      xcb_window_t      window );
+To have a simple example, see the example above. The mapping operation will cause an Expose event to be sent to our application, unless the window is completely covered by other windows.
+
+Un-mapping a window is also simple. You use the function
+
+    xcb_void_cookie_t xcb_unmap_window (xcb_connection_t *c,
+                                        xcb_window_t      window );
+The utilization of this function is the same as xcb_map_window().
+
+2. Configuring a window
+As we have seen when we have created our first window, in the X Events subsection, we can set some attributes for the window (that is, the position, the size, the events the window will receive, etc). If we want to modify them, but the window is already created, we can change them by using the following function:
+
+    xcb_void_cookie_t xcb_configure_window (xcb_connection_t *c,            /* The connection to the X server*/
+                                            xcb_window_t      window,       /* The window to configure */
+                                            uint16_t          value_mask,   /* The mask */
+                                            const uint32_t   *value_list);  /* The values to set */
+We set the value_mask to one or several mask values that are in the xcb_config_window_t enumeration in the xproto.h header:
+
+    XCB_CONFIG_WINDOW_X             // new x coordinate of the window's top left corner
+    XCB_CONFIG_WINDOW_Y             // new y coordinate of the window's top left corner
+    XCB_CONFIG_WINDOW_WIDTH         // new width of the window
+    XCB_CONFIG_WINDOW_HEIGHT        // new height of the window
+    XCB_CONFIG_WINDOW_BORDER_WIDTH  // new width of the border of the window
+    XCB_CONFIG_WINDOW_SIBLING
+    XCB_CONFIG_WINDOW_STACK_MODE    // the new stacking order
+We then give to value_mask the new value. We now describe how to use xcb_configure_window_t in some useful situations.
+
+3. Moving a window around the screen
+An operation we might want to do with windows is to move them to a different location. This can be done like this:
+
+    const static uint32_t values[] = { 10, 20 };
+
+    /* Move the window to coordinates x = 10 and y = 20 */
+    xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
+Note that when the window is moved, it might get partially exposed or partially hidden by other windows, and thus we might get Expose events due to this operation.
+
+4. Resizing a window
+Yet another operation we can do is to change the size of a window. This is done using the following code:
+
+    const static uint32_t values[] = { 200, 300 };
+
+    /* Resize the window to width = 200 and height = 300 */
+    xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
+We can also combine the move and resize operations using one single call to xcb_configure_window_t:
+
+    const static uint32_t values[] = { 10, 20, 200, 300 };
+
+    /* Move the window to coordinates x = 10 and y = 20 */
+    /* and resize the window to width = 200 and height = 300 */
+    xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
+5. Changing windows stacking order: raise and lower
+Until now, we changed properties of a single window. We'll see that there are properties that relate to the window and other windows. One of them is the stacking order. That is, the order in which the windows are layered on top of each other. The front-most window is said to be on the top of the stack, while the back-most window is at the bottom of the stack. Here is how to manipulate our windows stack order:
+
+    const static uint32_t values[] = { XCB_STACK_MODE_ABOVE };
+
+    /* Move the window on the top of the stack */
+    xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_STACK_MODE, values);
+
+    const static uint32_t values[] = { XCB_STACK_MODE_BELOW };
+
+    /* Move the window on the bottom of the stack */
+    xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_STACK_MODE, values);
+6. Getting information about a window
+Just like we can set various attributes of our windows, we can also ask the X server supply the current values of these attributes. For example, we can check where a window is located on the screen, what is its current size, whether it is mapped or not, etc. The structure that contains some of this information is:
+
+    typedef struct {
+        uint8_t      response_type;
+        uint8_t      depth;         /* depth of the window */
+        uint16_t     sequence;
+        uint32_t     length;
+        xcb_window_t root;          /* Id of the root window *>
+        int16_t      x;             /* X coordinate of the window's location */
+        int16_t      y;             /* Y coordinate of the window's location */
+        uint16_t     width;         /* Width of the window */
+        uint16_t     height;        /* Height of the window */
+        uint16_t     border_width;  /* Width of the window's border */
+    } xcb_get_geometry_reply_t;
+Two functions fill this structure:
+
+    xcb_get_geometry_cookie_t xcb_get_geometry (xcb_connection_t *connection,
+                                                xcb_drawable_t    drawable );
+
+    xcb_get_geometry_reply_t *xcb_get_geometry_reply (xcb_connection_t          *connection,
+                                                      xcb_get_geometry_cookie_t  cookie,
+                                                      xcb_generic_error_t      **error);
+You use them as follows:
+
+    xcb_get_geometry_cookie_t  geomCookie = xcb_get_geometry (connection, window);  // window is a xcb_drawable_t
+    xcb_get_geometry_reply_t  *geom       = xcb_get_geometry_reply (connection, geomCookie, NULL);
+    /* ...do stuff with geom... */
+    free (geom);
+One problem is that the returned location of the window is relative to its parent window. This makes these coordinates rather useless for any window manipulation functions, like moving it on the screen. In order to overcome this problem, we need to take a two-step operation. First, we find out the Id of the parent window of our window. We then translate the above relative coordinates to the screen coordinates.
+
+To get the Id of the parent window, we need this structure:
+
+    typedef struct {
+        uint8_t      response_type;
+        uint8_t      pad0;
+        uint16_t     sequence;
+        uint32_t     length;
+        xcb_window_t root;
+        xcb_window_t parent;       /* Id of the parent window */
+        uint16_t     children_len;
+        uint8_t      pad1[14];
+    } xcb_query_tree_reply_t;
+To fill this structure, we use these two functions:
+
+    xcb_query_tree_cookie_t xcb_query_tree       (xcb_connection_t        *connection,
+                                                  xcb_window_t             window );
+
+    xcb_query_tree_reply_t *xcb_query_tree_reply (xcb_connection_t        *connection,
+                                                  xcb_query_tree_cookie_t  cookie,
+                                                  xcb_generic_error_t    **error );
+The translated coordinates will be found in this structure:
+
+    typedef struct {
+        uint8_t      response_type;
+        uint8_t      same_screen;
+        uint16_t     sequence;
+        uint32_t     length;
+        xcb_window_t child;
+        uint16_t     dst_x;        /* Translated x coordinate */
+        uint16_t     dst_y;        /* Translated y coordinate */
+    } xcb_translate_coordinates_reply_t;
+As usual, we need two functions to fill this structure:
+
+    xcb_translate_coordinates_cookie_t xcb_translate_coordinates (xcb_connection_t     *c,
+                                                                  xcb_window_t          src_window,
+                                                                  xcb_window_t          dst_window,
+                                                                  int16_t               src_x,
+                                                                  int16_t               src_y );
+
+    xcb_translate_coordinates_reply_t *xcb_translate_coordinates_reply (xcb_connection_t                    *c,
+                                                                        xcb_translate_coordinates_cookie_t   cookie,
+                                                                        xcb_generic_error_t                **e );
+We use them as follows:
+
+    /* assume connection and window */
+
+    xcb_get_geometry_reply_t *geom = xcb_get_geometry_reply (connection,
+                                                             xcb_get_geometry (connection, window), 
+                                                             NULL );
+    if (!geom) {
+        return 0;
+    }
+
+    xcb_query_tree_reply_t *tree = xcb_query_tree_reply (connection,
+                                                         xcb_query_tree (connection, window),
+                                                         NULL );
+    if (!tree) {
+        return 0;
+    }
+
+    xcb_translate_coordinates_cookie_t translateCookie = xcb_translate_coordinates (connection,
+                                                                                    window,
+                                                                                    tree->parent,
+                                                                                    geom->x, geom->y );
+
+    xcb_translate_coordinates_reply_t *trans = xcb_translate_coordinates_reply (connection, 
+                                                                                translateCookie,
+                                                                                NULL );
+    if (!trans) {
+        return 0;
+    }
+
+    /* the translated coordinates are in trans->dst_x and trans->dst_y */
+
+    free (trans);
+    free (tree);
+    free (geom);
+The work is a bit verbose, but XCB is a quite low-level library.
+
+TODO: the utilization of these functions should be a prog, which displays the coordinates of the window.
+
+There is another structure that gives informations about our window:
+
+    typedef struct {
+        uint8_t        response_type;
+        uint8_t        backing_store;
+        uint16_t       sequence;
+        uint32_t       length;
+        xcb_visualid_t visual;                /* Visual of the window */
+        uint16_t       _class;
+        uint8_t        bit_gravity;
+        uint8_t        win_gravity;
+        uint32_t       backing_planes;
+        uint32_t       backing_pixel;
+        uint8_t        save_under;
+        uint8_t        map_is_installed;
+        uint8_t        map_state;             /* Map state of the window */
+        uint8_t        override_redirect;
+        xcb_colormap_t colormap;              /* Colormap of the window */
+        uint32_t       all_event_masks;
+        uint32_t       your_event_mask;
+        uint16_t       do_not_propagate_mask;
+    } xcb_get_window_attributes_reply_t;
+
+    XCB supplies these two functions to fill it:
+
+    xcb_get_window_attributes_cookie_t xcb_get_window_attributes (xcb_connection_t *connection,
+                                                                  xcb_window_t      window );
+
+    xcb_get_window_attributes_reply_t *xcb_get_window_attributes_reply (xcb_connection_t                   *connection,
+                                                                        xcb_get_window_attributes_cookie_t  cookie,
+                                                                        xcb_generic_error_t               **e );
+You use them as follows:
+
+    /* assume connection and window */
+
+    xcb_get_window_attributes_cookie_t  attributesCookie = xcb_get_window_attributes (connection, window);
+    xcb_get_window_attributes_reply_t  *attributes       = xcb_get_window_attributes_reply (connection,
+                                                                                            attributesCookie,
+                                                                                            NULL );
+
+    if (!attributes) {
+        return 0;
+    }
+
+    /* ...do something with attributes... */
+
+    free (attributes);
+As for geom, attr has to be freed.
+
+Links: tutorial
+Last edited Thu 21 Nov 2013 11:53:45 AM UTC

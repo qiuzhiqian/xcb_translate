@@ -1,0 +1,258 @@
+Handling text and fonts
+Besides drawing graphics on a window, we often want to draw text. Text strings have two major properties: the characters to be drawn and the font with which they are drawn. In order to draw text, we need to first request the X server to load a font. We then assign a font to a Graphic Context, and finally, we draw the text in a window using the Graphic Context.
+
+1. The Font structure
+In order to support flexible fonts, a font type is defined, and guess what, it's an Id:
+
+    typedef uint32_t xcb_font_t;
+A font id is passed to several functions that handle fonts selection and text drawing. We ask the X server to attribute an Id to our font with the function:
+
+    xcb_font_t xcb_generate_id (xcb_connection_t *c);
+2. Opening a Font
+To open a font, we use the following function:
+
+    xcb_void_cookie_t xcb_open_font (xcb_connection_t *c,
+                                     xcb_font_t        fid,
+                                     uint16_t          name_len,
+                                     const char       *name);
+The fid parameter is the font Id defined by xcb_generate_id() (see above). The name parameter is the name of the font you want to open. Use the command xlsfonts in a terminal to know which are the fonts available on your computer. The parameter name_len is the length of the name of the font (given by strlen()).
+
+3. Assigning a Font to a Graphic Context
+Once a font is opened, you have to create a Graphic Context that will contain the information about the color of the foreground and the background used when you draw a text in a Drawable. Here is an example of a Graphic Context that will allow us to draw an opened font with a black foreground and a white background:
+
+          /*
+           * c is the connection
+           * screen is the screen where the window is displayed
+           * window is the window in which we will draw the text
+           * font is the opened font
+           */
+
+          uint32_t             value_list[3];
+          xcb_gcontext_t       gc;
+          uint32_t             mask;
+
+          gc = xcb_generate_id (c);
+          mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_FONT;
+          value_list[0] = screen->black_pixel;
+          value_list[1] = screen->white_pixel;
+          value_list[2] = font;
+          xcb_create_gc (c, gc, window, mask, value_list);
+
+          /* The font is not needed anymore, so we close it */
+          xcb_close_font (c, font);
+4. Drawing text in a drawable
+To draw a text in a drawable, we use the following function:
+
+        xcb_void_cookie_t xcb_image_text_8 (xcb_connection_t *c,
+                                            uint8_t           string_len,
+                                            xcb_drawable_t    drawable,
+                                            xcb_gcontext_t    gc,
+                                            int16_t           x,
+                                            int16_t           y,
+                                            const char       *string);
+The string parameter is the text to draw. The location of the drawing is given by the parameters x and y. The base line of the text is exactly the parameter y.
+
+5. Complete example
+This example draw a text at 10 pixels (for the base line) of the bottom of a window. Pressing the Esc key exits the program.
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <string.h>
+    #include <inttypes.h>
+
+    #include <xcb/xcb.h>
+
+    #define WIDTH 300
+    #define HEIGHT 100
+
+
+    static xcb_gc_t getFontGC (xcb_connection_t *c,
+                                 xcb_screen_t     *screen,
+                                 xcb_window_t      window,
+                                 const char       *font_name );
+
+
+    static void drawText (xcb_connection_t *c,
+                           xcb_screen_t     *screen,
+                           xcb_window_t      window,
+                           int16_t           x1,
+                           int16_t           y1,
+                           const char       *label );
+
+
+    static void
+    testCookie (xcb_void_cookie_t cookie,
+                xcb_connection_t *connection,
+                char *errMessage )
+    {
+        xcb_generic_error_t *error = xcb_request_check (connection, cookie);
+        if (error) {
+            fprintf (stderr, "ERROR: %s : %"PRIu8"\n", errMessage , error->error_code);
+            xcb_disconnect (connection);
+            exit (-1);
+        }
+    }
+
+    static void
+    drawText (xcb_connection_t  *connection,
+               xcb_screen_t     *screen,
+               xcb_window_t      window,
+               int16_t           x1,
+               int16_t           y1,
+               const char       *label )
+    {
+
+        /* get graphics context */
+        xcb_gcontext_t gc = getFontGC (connection, screen, window, "fixed");
+
+
+        /* draw the text */
+        xcb_void_cookie_t textCookie = xcb_image_text_8_checked (connection,
+                                                                 strlen (label),
+                                                                 window,
+                                                                 gc,
+                                                                 x1, y1,
+                                                                 label );
+
+        testCookie(textCookie, connection, "can't paste text");
+
+
+        /* free the gc */
+        xcb_void_cookie_t gcCookie = xcb_free_gc (connection, gc);
+
+        testCookie(gcCookie, connection, "can't free gc");
+    }
+
+
+    static xcb_gc_t
+    getFontGC (xcb_connection_t  *connection,
+               xcb_screen_t      *screen,
+               xcb_window_t       window,
+               const char        *font_name )
+    {
+        /* get font */
+        xcb_font_t font = xcb_generate_id (connection);
+        xcb_void_cookie_t fontCookie = xcb_open_font_checked (connection,
+                                                              font,
+                                                              strlen (font_name),
+                                                              font_name );
+
+        testCookie(fontCookie, connection, "can't open font");
+
+
+        /* create graphics context */
+        xcb_gcontext_t  gc            = xcb_generate_id (connection);
+        uint32_t        mask          = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_FONT;
+        uint32_t        value_list[3] = { screen->black_pixel,
+                                          screen->white_pixel,
+                                          font };
+
+        xcb_void_cookie_t gcCookie = xcb_create_gc_checked (connection,
+                                                            gc,
+                                                            window,
+                                                            mask,
+                                                            value_list );
+
+        testCookie(gcCookie, connection, "can't create gc");
+
+
+        /* close font */
+        fontCookie = xcb_close_font_checked (connection, font);
+
+        testCookie(fontCookie, connection, "can't close font");
+
+        return gc;
+    }
+
+
+    int
+    main ()
+    {
+        /* get the connection */
+        int screenNum;
+        xcb_connection_t *connection = xcb_connect (NULL, &screenNum);
+        if (!connection) {
+            fprintf (stderr, "ERROR: can't connect to an X server\n");
+            return -1;
+        }
+
+
+        /* get the current screen */
+        xcb_screen_iterator_t iter = xcb_setup_roots_iterator (xcb_get_setup (connection));
+
+        // we want the screen at index screenNum of the iterator
+        for (int i = 0; i < screenNum; ++i) {
+            xcb_screen_next (&iter);
+        }
+
+        xcb_screen_t *screen = iter.data;
+
+        if (!screen) {
+            fprintf (stderr, "ERROR: can't get the current screen\n");
+            xcb_disconnect (connection);
+            return -1;
+        }
+
+
+        /* create the window */
+        xcb_window_t window = xcb_generate_id (connection);
+
+        uint32_t mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
+        uint32_t values[2];
+        values[0] = screen->white_pixel;
+        values[1] = XCB_EVENT_MASK_KEY_RELEASE |
+                    XCB_EVENT_MASK_BUTTON_PRESS |
+                    XCB_EVENT_MASK_EXPOSURE |
+                    XCB_EVENT_MASK_POINTER_MOTION;
+
+        xcb_void_cookie_t windowCookie = xcb_create_window_checked (connection,
+                                                                    screen->root_depth,
+                                                                    window, screen->root,
+                                                                    20, 200, 
+                                                                    WIDTH, HEIGHT,
+                                                                    0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+                                                                    screen->root_visual,
+                                                                    mask, values);
+
+        testCookie(windowCookie, connection, "can't create window");
+
+        xcb_void_cookie_t mapCookie = xcb_map_window_checked (connection, window);
+
+        testCookie(mapCookie, connection, "can't map window");
+
+        xcb_flush(connection);  // make sure window is drawn
+
+
+        /* event loop */
+        xcb_generic_event_t  *event;
+        while (1) { ;
+            if ( (event = xcb_poll_for_event(connection)) ) {
+                switch (event->response_type & ~0x80) {
+                    case XCB_EXPOSE: {
+                        drawText (connection, 
+                                  screen,
+                                  window,
+                                  10, HEIGHT - 10,
+                                  "Press ESC key to exit..." );
+                        break;
+                    }
+                    case XCB_KEY_RELEASE: {
+                        xcb_key_release_event_t *kr = (xcb_key_release_event_t *)event;
+
+                        switch (kr->detail) {
+                            /* ESC */
+                            case 9: {
+                                free (event);
+                                xcb_disconnect (connection);
+                                return 0;
+                            }
+                        }
+                        free (event);
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+Links: tutorial
+Last edited Tue 03 Dec 2013 05:20:34 AM UTC

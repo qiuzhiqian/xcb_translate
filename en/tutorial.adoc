@@ -1,0 +1,385 @@
+= Tutorial
+
+Tutorial based off original http://cgit.freedesktop.org/xcb/libxcb/plain/doc/tutorial/index.html[here], which in turn was based off an Xlib tutorial by Guy Keren.
+
+After reading this page, read these pages (in this order):
+
+- https://xcb.freedesktop.org/tutorial/basicwindowsanddrawing/[Basic Windows and Drawing]
+- https://xcb.freedesktop.org/tutorial/events/[events]
+- https://xcb.freedesktop.org/tutorial/fonts/[Text and Fonts]
+- https://xcb.freedesktop.org/windowcontextandmanipulation/[Window Context and Manipulation]
+- https://xcb.freedesktop.org/colorsandpixmaps/[Colors and PixMaps]
+- https://xcb.freedesktop.org/tutorial/mousecursors/[Mouse Cursors]
+- https://xcb.freedesktop.org/xlibtoxcbtranslationguide/[Xlib to XCB Translation Guide]
+
+== Introduction
+This tutorial is intended for people who want to program with the XCB library. Keep in mind that XCB, like the Xlib library, isn't what most programmers wanting to write X applications are looking for. Rather, most application developers will want to use a much higher-level GUI toolkit, like Motif, LessTiff, GTK, Qt, EWL, or ETK or perhaps use the higher-level drawing library Cairo. However, the basics of XCB are not all that complicated, and knowing about the layers those other libraries are built on top of is not a bad idea.
+
+After reading this tutorial, one should be able to write very simple graphical programs but not write programs with decent user interfaces (at least easily). For real applications, the previously mentioned libraries are much more appropriate.
+
+== What is XCB and why does it exist?
+XCB ("X C Binding") is an low-level API for the X window server. XCB is an alternative to Xlib, which has been the standard C binding for the X Window System protocol for many years now. Xlib is an excellent piece of work, but there are applications for which it is not ideal, for example:
+
+Small platforms: Xlib is a large piece of code, and it's difficult to make it smaller
+Latency hiding: Xlib requests requiring a reply are effectively synchronous: they block until the reply appears, whether the result is needed immediately or not.
+Direct access to the protocol: Xlib does quite a bit of caching, layering, and similar optimizations. While this is normally a feature, it makes it difficult to simply emit specified X protocol requests and process specific responses.
+Threaded applications: While Xlib does attempt to support multithreading, the API makes this difficult and error-prone.
+New extensions: The Xlib infrastructure provides limited support for the new creation of X extension client side code.
+XCB has been designed to solve the above problems and thus provide a base for:
+
+Toolkit implementation.
+Direct protocol-level programming.
+Lightweight emulation of commonly used portions of the Xlib API.
+
+== The client and server model of the X window system
+The X Window System was developed with one major goal: flexibility. The idea was that the way things look is one thing, but the way things work is another matter. Thus, the lower levels provide the tools required to draw windows, handle user input, allow drawing graphics using colors (or black and white screens), etc. To this point, a decision was made to separate the system into two parts. A client that decides what to do, and a server that actually draws on the screen and reads user input in order to send it to the client for processing.
+
+This model is the complete opposite of what is used to when dealing with clients and servers. In our case, the user sits near the machine controlled by the server, while the client might be running on a remote machine. The server controls the screens, mouse and keyboard. A client may connect to the server, request that it draws a window (or several windows), and ask the server to send it any input the user sends to these windows. Thus, several clients may connect to a single X server (one might be running mail software, one running a WWW browser, etc). When input is sent by the user to some window, the server sends a message to the client controlling this window for processing. The client decides what to do with this input, and sends the server requests for drawing in the window.
+
+The whole session is carried out using the X message protocol. This protocol was originally carried over the TCP/IP protocol suite, allowing the client to run on any machine connected to the same network that the server is. Later on, the X servers were extended to allow clients running on the local machine with more optimized access to the server (note that an X protocol message may be several hundreds of KB in size), such as using shared memory, or using Unix domain sockets (a method for creating a logical channel on a Unix system between two processes).
+
+== GUI programming: the asynchronous model
+Unlike conventional computer programs, that carry some serial nature, a GUI program usually uses an asynchronous programming model, also known as "event-driven programming". This means that that program mostly sits idle, waiting for events sent by the X server, and then acts upon these events. An event may say "The user pressed the 1st button mouse in spot (x,y)", or "The window you control needs to be redrawn". In order for the program to be responsive to the user input, as well as to refresh requests, it needs to handle each event in a rather short period of time (e.g. less that 200 milliseconds, as a rule of thumb).
+
+This also implies that the program may not perform operations that might take a long time while handling an event (such as opening a network connection to some remote server, or connecting to a database server, or even performing a long file copy operation). Instead, it needs to perform all these operations in an asynchronous manner. This may be done by using various asynchronous models to perform the longish operations, or by performing them in a different process or thread.
+
+So the way a GUI program looks is something like that:
+
+Perform initialization routines.
+Connect to the X server.
+Perform X-related initialization.
+While not finished:
+Receive the next event from the X server.
+Handle the event, possibly sending various drawing requests to the X server.
+If the event was a quit message, exit the loop.
+Close down the connection to the X server.
+Perform cleanup operations.
+
+== Basic XCB notions
+XCB has been created to eliminate the need for programs to actually implement the X protocol layer. This library gives a program a very low-level access to any X server. Since the protocol is standardized, a client using any implementation of XCB may talk with any X server (the same occurs for Xlib, of course). We now give a brief description of the basic XCB notions. They will be detailed later.
+
+=== 1. The X Connection
+The major notion of using XCB is the X Connection. This is a structure representing the connection we have open with a given X server. It hides a queue of messages coming from the server, and a queue of pending requests that our client intends to send to the server. In XCB, this structure is named 'xcb_connection_t'. It is analogous to the Xlib Display. When we open a connection to an X server, the library returns a pointer to such a structure. Later, we supply this pointer to any XCB function that should send messages to the X server or receive messages from this server.
+
+=== 2. Requests and replies: the Xlib killers
+To ask for information from the X server, we have to make a request and ask for a reply. With Xlib, these two tasks are automatically done: Xlib locks the system, sends a request, waits for a reply from the X server and unlocks. This is annoying, especially if one makes a lot of requests to the X server. Indeed, Xlib has to wait for the end of a reply before asking for the next request (because of the locks that Xlib sends). For example, here is a time-line of N=4 requests/replies with Xlib, with a round-trip latency T_round_trip that is 5 times long as the time required to write or read a request/reply (T_write/T_read):
+....
+W-----RW-----RW-----RW-----R
+
+* W: Writing request
+* -: Stalled, waiting for data
+* R: Reading reply 
+....
+        The total time is N * (T_write + T_round_trip + T_read).
+With XCB, we can suppress most of the round-trips as the requests and the replies are not locked. We usually send a request, then XCB returns to us a cookie, which is an identifier. Then, later, we ask for a reply using this cookie and XCB returns a pointer to that reply. Hence, with XCB, we can send a lot of requests, and later in the program, ask for all the replies when we need them. Here is the time-line for 4 requests/replies when we use this property of XCB:
+....
+WWWW--RRRR
+....
+The total time is N * T_write + max (0, T_round_trip - (N-1) * T_write) + N * T_read. Which can be considerably faster than all those Xlib round-trips.
+
+Here is a program that computes the time to create 500 atoms with Xlib and XCB. It shows the Xlib way, the bad XCB way (which is similar to Xlib) and the good XCB way. On my computer, XCB is 25 times faster than Xlib. On another random machine XCB has been observed to be up to 117 times faster than Xlib, on rare occasions.
+
+To further compare Xlib to XCB, there's a XInternAtoms routine. It's the Xlib method to request all the atoms in an array at one time to help hide the latency. Mostly the good Xlib time takes twice the time as the good XCB time. It also highlights the complexity of using XCB, 3 simple statements for Xlib vs 9 statements including two loops for XCB. If this simple test was expanded beyond requesting Atoms, XCB would allow submitting all the various requests at one time, Xlib wouldn't.
+[source.c]
+....
+/* It's a good idea to paste this and other long code examples
+   into a text editor for easier reading */
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/time.h>
+#include <xcb/xcb.h>
+#include <X11/Xlib.h>
+#define NUM_NAMES 500
+/*
+    NOTE: For concision, we're going to be cheesy and use arrays where real code
+    would use points and memory allocation.s
+*/
+#ifndef __GNUC__
+char* strdup(const char* s) {
+    int n = strlen(s) + 1;
+
+    char *dup = malloc(n);
+
+    if(dup) 
+        strcpy(dup, s);
+
+    return dup;
+}
+#endif
+
+/* 
+    return interval of time (uses time.h) 
+*/
+double
+get_time (void) {
+    struct timeval timev;           
+    gettimeofday(&timev, NULL);
+    return (double)timev.tv_sec + (((double)timev.tv_usec) / 1000000);
+}
+
+/*
+
+*/
+void
+useXlib (char **names,
+         Display *display ) {
+
+    Atom atoms[NUM_NAMES];
+    for (int i = 0; i < NUM_NAMES; ++i) {
+        atoms[i] = XInternAtom(display, names[i], 0);
+    }
+}
+
+/*
+Request all atoms at once.
+*/
+void
+useXlibProperly (char **names,
+         Display *display ) {
+
+    Atom atoms[NUM_NAMES];
+    if(!XInternAtoms(display, names, NUM_NAMES, 0, atoms))
+        fprintf(stderr, "XInternAtoms failed\n");
+}
+
+/*
+
+*/
+void
+useXCBPoorly (char **names,
+             xcb_connection_t *connection ) {
+    xcb_atom_t              atoms[NUM_NAMES];
+    // in this bad use of xcb, we use the cookie immediately after posting the request with xcb_intern_atom 
+    for (int i = 0; i < NUM_NAMES; ++i) {
+        /* make request */
+        xcb_intern_atom_cookie_t cookie = xcb_intern_atom (connection, 
+                                                            0, 
+                                                            strlen(names[i]),
+                                                            names[i] );
+        /* get response */
+        xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply (connection, 
+                                                                cookie, 
+                                                                NULL ); // normally a pointer to receive error, but we'll just ignore error handling 
+        if (reply) {
+            atoms[i] = reply->atom;
+            free (reply);
+        }
+    }
+    // now we have our atoms (replies), but this is just a demo, so we do nothing with them
+}
+
+/*
+*/
+void
+useXCBProperly (char **names,
+                xcb_connection_t *connection ) {
+    xcb_atom_t               atoms[NUM_NAMES];
+    xcb_intern_atom_cookie_t    cookies[NUM_NAMES];
+    // in this good example, we make all our requests before checking for
+    // replies because it's best to queue requests when we have many at once    
+    /* make requests */
+    for (int i = 0; i < NUM_NAMES; ++i) {
+        cookies[i] = xcb_intern_atom (connection, 
+                                     0, 
+                                     strlen (names[i]), 
+                                     names[i] );
+    }
+    /* get responses */
+    for (int i = 0; i < NUM_NAMES; ++i) {
+        xcb_intern_atom_reply_t *reply = xcb_intern_atom_reply (connection, 
+                                                                cookies[i], 
+                                                                NULL ); // normally a pointer to receive errors, but we'll just ignore error handling
+        if (reply) {
+            atoms[i] = reply->atom;
+            free (reply);
+        }
+    }
+    // now we have our atoms (replies), but this is just a demo, so we do nothing with them
+}
+
+int
+main () {
+    /* setup names for tests */
+    char (**names) = malloc(NUM_NAMES*sizeof(*names));
+    // init names to "NAME0", "NAME1", "NAME2" ... and so on
+    for (int i = 0; i < NUM_NAMES; ++i) {
+        char buf[100];
+        sprintf (buf, "NAME%d", i);
+        names[i] = strdup (buf);
+    }
+
+    /* do tests */
+    double start, XlibTime, XlibGoodTime, XCBBadTime, XCBGoodTime;
+
+    /* test Xlib */
+    Display *display = XOpenDisplay (NULL);
+    start = get_time ();
+    useXlib (names, display);
+    XlibTime = get_time () - start;
+    start = get_time ();
+    useXlibProperly (names, display);
+    XlibGoodTime = get_time () - start;
+    XCloseDisplay (display);
+
+    /* test XCB */
+    xcb_connection_t *connection = xcb_connect (NULL, NULL);
+    start = get_time ();
+    useXCBPoorly (names, connection);
+    XCBBadTime = get_time () - start;   
+    start = get_time ();
+    useXCBProperly (names, connection);
+    XCBGoodTime = get_time () - start;
+    xcb_disconnect (connection);
+
+    /* report times */
+    printf ("Bad Xlib time : %f\n", XlibTime);
+    printf ("Good Xlib time : %f\n", XlibGoodTime);
+    printf ("Bad xcb time : %f\n", XCBBadTime);
+    printf ("Good xcb time : %f\n", XCBGoodTime);
+    printf ("ratio of good xcb time to bad xcb time: %f\n", XCBGoodTime / XCBBadTime);
+    printf ("ratio of Xlib time to good xcb time: %f\n", XlibTime / XCBGoodTime);
+    printf ("ratio of good Xlib time to bad Xlib time: %f\n", XlibGoodTime / XlibTime);
+
+    return 0;
+}
+....
+
+=== 3. The Graphics Context
+When we perform various drawing operations (graphics, text, etc), we may specify various options for controlling how the data will be drawn (what foreground and background colors to use, how line edges will be connected, what font to use when drawing some text, etc). In order to avoid the need to supply hundreds of parameters to each drawing function, a graphical context structure is used. We set the various drawing options in this structure, and then we pass a pointer to this structure to any drawing routines. This is rather handy, as we often need to perform several drawing requests with the same options. Thus, we would initialize a graphical context, set the desired options, and pass this structure to all drawing functions.
+
+Note that graphic contexts have no client-side structure in XCB, they're just XIDs. Xlib has a client-side structure because it caches the GC contents so it can avoid making redundant requests, but of course XCB doesn't do that.
+
+=== 4. Events
+A structure is used to pass events received from the X server. XCB supports exactly the events specified in the protocol (33 events). This structure contains the type of event received (including a bit for whether it came from the server or another client), as well as the data associated with the event (e.g. position on the screen where the event was generated, mouse button associated with the event, region of the screen associated with a "redraw" event, etc). The way to read the event's data depends on the event type.
+
+== Using XCB-based programs
+=== 1. Installing XCB
+TODO: These instructions are out of date. Just reference the main XCB page so we don't have to maintain these instructions in more than one place.
+
+To build XCB from source, you need to have installed at least:
+
+pkgconfig 0.15.0
+automake 1.7
+autoconf 2.50
+check
+xsltproc
+gperf 3.0.1
+You have to checkout in the git repository the following modules:
+
+Xau from xlibs
+xcb-proto
+xcb
+Note that xcb-proto exists only to install header files, so typing 'make' or 'make all' will produce the message "Nothing to be done for 'all'". That's normal.
+
+=== 2. Compiling XCB-based programs
+Compiling XCB-based programs requires linking them with the XCB library. This is easily done thanks to pkgconfig:
+
+gcc -Wall prog.c -o prog `pkg-config --cflags --libs xcb`
+or simply :
+
+gcc -Wall prog.c -lxcb
+
+== Opening and closing the connection to an X server
+An X program first needs to open the connection to the X server, using xcb_connect():
+[source.c]
+....
+xcb_connection_t *xcb_connect (const char *displayname,  // if NULL, uses the DISPLAY environment variable
+                                int        *screenp );    // returns the screen number of the connection; can provide NULL if you don't care
+....
+To close a connection, it suffices to use:
+[source.c]
+....
+void xcb_disconnect (xcb_connection_t *c);
+....
+So for example:
+[source.c]
+....
+#include <xcb/xcb.h>
+
+...
+
+xcb_connection_t *connection = xcb_connect (NULL, NULL);
+xcb_disconnect (connection);
+....
+Comparison Xlib/XCB:
+
+- XOpenDisplay () => xcb_connect ()
+- XCloseDisplay () => xcb_disconnect ()
+
+== Checking basic information about a connection
+Once we have opened a connection to an X server, we should check some basic information about it: what screens it has, what is the size (width and height) of the screen, how many colors it supports (black and white ? grey scale ?, 256 colors ? more ?), and so on. We get such information from the xcbscreent structure:
+[source.c]
+....
+typedef struct {
+    xcb_window_t   root;
+    xcb_colormap_t default_colormap;
+    uint32_t       white_pixel;
+    uint32_t       black_pixel;
+    uint32_t       current_input_masks;
+    uint16_t       width_in_pixels;
+    uint16_t       height_in_pixels;
+    uint16_t       width_in_millimeters;
+    uint16_t       height_in_millimeters;
+    uint16_t       min_installed_maps;
+    uint16_t       max_installed_maps;
+    xcb_visualid_t root_visual;
+    uint8_t        backing_stores;
+    uint8_t        save_unders;
+    uint8_t        root_depth;
+    uint8_t        allowed_depths_len;
+} xcb_screen_t;
+....
+We could retrieve the first screen of the connection by using the following function:
+[source.c]
+....
+xcb_screen_iterator_t xcb_setup_roots_iterator (xcb_setup_t *R);
+....
+Here is a small program that shows how to use this function:
+[source.c]
+....
+#include <stdio.h>
+#include <xcb/xcb.h>
+#include <inttypes.h>
+
+int 
+main ()
+{
+    /* Open the connection to the X server. Use the DISPLAY environment variable */
+
+    int i, screenNum;
+    xcb_connection_t *connection = xcb_connect (NULL, &screenNum);
+
+
+    /* Get the screen whose number is screenNum */
+
+    const xcb_setup_t *setup = xcb_get_setup (connection);
+    xcb_screen_iterator_t iter = xcb_setup_roots_iterator (setup);  
+
+    // we want the screen at index screenNum of the iterator
+    for (i = 0; i < screenNum; ++i) {
+        xcb_screen_next (&iter);
+    }
+
+    xcb_screen_t *screen = iter.data;
+
+
+    /* report */
+
+    printf ("\n");
+    printf ("Informations of screen %"PRIu32":\n", screen->root);
+    printf ("  width.........: %"PRIu16"\n", screen->width_in_pixels);
+    printf ("  height........: %"PRIu16"\n", screen->height_in_pixels);
+    printf ("  white pixel...: %"PRIu32"\n", screen->white_pixel);
+    printf ("  black pixel...: %"PRIu32"\n", screen->black_pixel);
+    printf ("\n");
+
+    return 0;
+}
+....
+
+== The window hierarchy
+TODO
+
+Last edited Sat 29 Mar 2014 03:59:04 PM UTC
