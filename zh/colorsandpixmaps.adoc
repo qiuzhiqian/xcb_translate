@@ -1,7 +1,9 @@
-Using colors to paint the rainbow
+= 颜色和像素图
+
+== Using colors to paint the rainbow
 Up until now, all our painting operation were done using black and white. We will (finally) see now how to draw using colors.
 
-1. Color maps
+=== 1. Color maps
 In the beginning, there were not enough colors. Screen controllers could only support a limited number of colors simultaneously (initially 2, then 4, 16 and 256). Because of this, an application could not just ask to draw in a "light purple-red" color, and expect that color to be available. Each application allocated the colors it needed, and when all the color entries (4, 16, 256 colors) were in use, the next color allocation would fail.
 
 Thus, the notion of "a color map" was introduced. A color map is a table whose size is the same as the number of simultaneous colors a given screen controller. Each entry contained the RGB (Red, Green and Blue) values of a different color (all colors can be drawn using some combination of red, green and blue). When an application wants to draw on the screen, it does not specify which color to use. Rather, it specifies which color entry of some color map to be used during this drawing. Change the value in this color map entry and the drawing will use a different color.
@@ -10,193 +12,231 @@ In order to be able to draw using colors that got something to do with what the 
 
 On today's more modern screens where one runs an X server with support for 16 million colors, this limitation looks a little silly, but remember that there are still older computers with older graphics cards out there. Using color map, support for these screen becomes transparent to you. On a display supporting 16 million colors, any color entry allocation request would succeed. On a display supporting a limited number of colors, some color allocation requests would return similar colors. It won't look as good, but your application would still work.
 
-2. Allocating and freeing Color Maps
+=== 2. Allocating and freeing Color Maps
 When you draw using XCB, you can choose to use the standard color map of the screen your window is displayed on, or you can allocate a new color map and apply it to a window. In the latter case, each time the mouse moves onto your window, the screen color map will be replaced by your window's color map, and you'll see all the other windows on screen change their colors into something quite bizarre. In fact, this is the effect you get with X applications that use the "-install" command line option.
 
 In XCB, a color map is (as often in X) an Id:
-
-    typedef uint32_t xcb_colormap_t;
+[source.c]
+....
+typedef uint32_t xcb_colormap_t;
+....
 In order to access the screen's default color map, you just have to retrieve the default_colormap field of the xcb_screen_t structure:
-
-    xcb_colormap_t colormap = screen->default_colormap;
+[source.c]
+....
+xcb_colormap_t colormap = screen->default_colormap;
+....
 This will return the color map used by default on the first screen (again, remember that an X server may support several different screens, each of which might have its own resources).
 
 The other option, that of allocating a new colormap, works as follows. We first ask the X server to give an Id to our color map, with this function:
-
-    xcb_colormap_t
-    xcb_generate_id (xcb_connection_t *connection);
+[source.c]
+....
+xcb_colormap_t
+xcb_generate_id (xcb_connection_t *connection);
+....
 Then, we create the color map with
-
+[source.c]
+....
     xcb_void_cookie_t
-    xcb_create_colormap (xcb_connection_t *connection,
-                         uint8_t           alloc,   /* Colormap entries to be allocated (AllocNone or AllocAll) */
-                         xcb_colormap_t    mid,     /* Id of the color map */
-                         xcb_window_t      window,  /* Window on whose screen the colormap will be created */
-                         xcb_visualid_t    visual ); /* Id of the visual supported by the screen */
+xcb_create_colormap (xcb_connection_t *connection,
+                        uint8_t           alloc,   /* Colormap entries to be allocated (AllocNone or AllocAll) */
+                        xcb_colormap_t    mid,     /* Id of the color map */
+                        xcb_window_t      window,  /* Window on whose screen the colormap will be created */
+                        xcb_visualid_t    visual ); /* Id of the visual supported by the screen */
+....
 Here is an example of creation of a new color map:
+[source.c]
+....
+#include <xcb/xcb.h>
 
-    #include <xcb/xcb.h>
+int
+main ()
+{
+    /* open the connection to the X server and get the first screen */
+    xcb_connection_t  *connection  = xcb_connect (NULL, NULL);
+    xcb_screen_t      *screen      = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
 
-    int
-    main ()
-    {
-        /* open the connection to the X server and get the first screen */
-        xcb_connection_t  *connection  = xcb_connect (NULL, NULL);
-        xcb_screen_t      *screen      = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
+    /* ...assume we create a window here... */
 
-        /* ...assume we create a window here... */
+    xcb_colormap_t colormapId = xcb_generate_id (connection);
+    xcb_create_colormap (connection,
+                            XCB_COLORMAP_ALLOC_NONE,
+                            colormapId,
+                            window,
+                            screen->root_visual );
 
-        xcb_colormap_t colormapId = xcb_generate_id (connection);
-        xcb_create_colormap (connection,
-                             XCB_COLORMAP_ALLOC_NONE,
-                             colormapId,
-                             window,
-                             screen->root_visual );
-
-        return 0;
-    }
+    return 0;
+}
+....
 Note that the window parameter is only used to allow the X server to create the color map for the given screen. We can then use this color map for any window drawn on the same screen.
 
 To free a color map, it suffices to use this function:
-
-    xcb_void_cookie_t
-    xcb_free_colormap (xcb_connection_t  *connection,
-                       xcb_colormap_t     colormapId );
+[source.c]
+....
+xcb_void_cookie_t
+xcb_free_colormap (xcb_connection_t  *connection,
+                    xcb_colormap_t     colormapId );
+....
 Comparison Xlib/XCB:
 
-XCreateColormap () =>
-
+- XCreateColormap () =>
+[source.c]
+....
 xcb_generate_id ()
 xcb_create_colormap () 
-XFreeColormap () =>
+....
 
+- XFreeColormap () =>
+[source.c]
+....
 xcb_free_colormap () 
-3. Allocating and freeing a color entry
+....
+
+=== 3. Allocating and freeing a color entry
 Once we got access to some color map, we can start allocating colors. The informations related to a color are stored in the following structure:
-
-    typedef struct {
-        uint8_t  response_type;
-        uint8_t  pad0;
-        uint16_t sequence;
-        uint32_t length;
-        uint16_t red;          /* The red component   */
-        uint16_t green;        /* The green component */
-        uint16_t blue;         /* The blue component  */
-        uint8_t  pad1[2];
-        uint32_t pixel;        /* The entry in the color map, supplied by the X server */
-    } xcb_alloc_color_reply_t;
+[source.c]
+....
+typedef struct {
+    uint8_t  response_type;
+    uint8_t  pad0;
+    uint16_t sequence;
+    uint32_t length;
+    uint16_t red;          /* The red component   */
+    uint16_t green;        /* The green component */
+    uint16_t blue;         /* The blue component  */
+    uint8_t  pad1[2];
+    uint32_t pixel;        /* The entry in the color map, supplied by the X server */
+} xcb_alloc_color_reply_t;
+....
 XCB supplies these two functions to fill it:
+[source.c]
+....
+xcb_alloc_color_cookie_t
+xcb_alloc_color (xcb_connection_t  *connection,
+                    xcb_colormap_t     colormapId,
+                    uint16_t           red,
+                    uint16_t           green,
+                    uint16_t           blue );
 
-    xcb_alloc_color_cookie_t
-    xcb_alloc_color (xcb_connection_t  *connection,
-                     xcb_colormap_t     colormapId,
-                     uint16_t           red,
-                     uint16_t           green,
-                     uint16_t           blue );
-
-    xcb_alloc_color_reply_t *
-    xcb_alloc_color_reply (xcb_connection_t          *connection,
-                           xcb_alloc_color_cookie_t   cookie,
-                           xcb_generic_error_t      **e );
+xcb_alloc_color_reply_t *
+xcb_alloc_color_reply (xcb_connection_t          *connection,
+                        xcb_alloc_color_cookie_t   cookie,
+                        xcb_generic_error_t      **e );
+....
 The function xcb_alloc_color() takes the 3 RGB components as parameters (red, green and blue). Here is an example of using these functions:
+[source.c]
+....
+#include <malloc.h>
 
-    #include <malloc.h>
+#include <xcb/xcb.h>
 
-    #include <xcb/xcb.h>
+int
+main ()
+{
+    /* open the connection to the X server and get the first screen */
+    xcb_connection_t  *connection = xcb_connect (NULL, NULL);
+    xcb_screen_t      *screen     = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
 
-    int
-    main ()
-    {
-        /* open the connection to the X server and get the first screen */
-        xcb_connection_t  *connection = xcb_connect (NULL, NULL);
-        xcb_screen_t      *screen     = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
+    /* ...assume window created here... */
 
-        /* ...assume window created here... */
+    xcb_colormap_t colormapId = xcb_generate_id (connection);
+    xcb_create_colormap (connection, XCB_COLORMAP_ALLOC_NONE, colormapId, window, screen->root_visual);
 
-        xcb_colormap_t colormapId = xcb_generate_id (connection);
-        xcb_create_colormap (connection, XCB_COLORMAP_ALLOC_NONE, colormapId, window, screen->root_visual);
+    xcb_alloc_color_reply_t *reply = xcb_alloc_color_reply (connection,
+                                                            xcb_alloc_color (connection,
+                                                                                colormapId,
+                                                                                65535,
+                                                                                0,
+                                                                                0),
+                                                            NULL );
 
-        xcb_alloc_color_reply_t *reply = xcb_alloc_color_reply (connection,
-                                                                xcb_alloc_color (connection,
-                                                                                 colormapId,
-                                                                                 65535,
-                                                                                 0,
-                                                                                 0),
-                                                                NULL );
-
-        if (!reply) {
-            return 0;
-        }
-
-        /* ...do something with reply->pixel... */
-
-        free (reply);
-
+    if (!reply) {
         return 0;
     }
+
+    /* ...do something with reply->pixel... */
+
+    free (reply);
+
+    return 0;
+}
+....
+
 TODO: Talk about freeing colors.
 
-X Bitmaps and Pixmaps
+== X Bitmaps and Pixmaps
 One thing many applications need to do is display images. In the X world, this is done using bitmaps and pixmaps. We have already seen some usage of them when setting an icon for our application. Lets study them further and see how to draw these images inside a window along side the simple primitives and text we have seen so far.
 
 One thing to note before delving further is that neither XCB nor Xlib supplies a means of manipulating popular image formats such as gif, png, jpeg or tiff. For display in X, these formats must be converted into X bitmaps or X pixmaps using higher-level graphics libraries.
 
-1. What are X bitmaps and pixmaps?
+=== 1. What are X bitmaps and pixmaps?
 An X bitmap is a two-color image stored in a format specific to the X window system. When stored in a file, the bitmap data looks like a C source file. It contains members defining the width and the height of the bitmap, an array containing the bit values of the bitmap (the size of the array is (width+7) / 8 * height) and the bit and byte order are LSB), and an optional hot-spot location that is explained in the section on mouse cursors.
 
 An X pixmap is a format used to stored images in the memory of an X server. This format can store both black and white images (such as x bitmaps) as well as color images. It is the only image format supported by the X protocol and any image to be drawn on screen should be first translated into this format.
 
 An X pixmap can be thought of as a window that does not appear on the screen, for many graphics operations that work on windows will also work on pixmaps. Indeed, the type of X pixmap in XCB is an Id like a window:
-
-    typedef uint32_t xcb_pixmap_t;
+[source.c]
+....
+typedef uint32_t xcb_pixmap_t;
+....
 The operations that work the same on a window or a pixmap take an xcb_drawable_t argument:
-
-    typedef uint32_t xcb_drawable_t;
+[source.c]
+....
+typedef uint32_t xcb_drawable_t;
+....
 While, in Xlib, there is no specific difference between a Drawable, a Pixmap or a Window---all are 32 bit long integers---XCB wraps all these different IDs in structures to provide some measure of type-safety.
 
-2. Creating a pixmap
+=== 2. Creating a pixmap
 Sometimes we want to create an un-initialized pixmap so that we can later draw into it. This is useful for image drawing programs (creating a new empty canvas will cause the creation of a new pixmap on which the drawing can be stored). It is also useful when reading various image formats: we load the image data into memory, create a pixmap on the server, and then draw the decoded image data onto that pixmap.
 
 To create a new pixmap, we first ask the X server to give an Id to our pixmap with this function:
-
-    xcb_pixmap_t
-    xcb_generate_id (xcb_connection_t *connection);
+[source.c]
+....
+xcb_pixmap_t
+xcb_generate_id (xcb_connection_t *connection);
+....
 Then, XCB supplies the following function to create new pixmaps:
-
-    xcb_void_cookie_t
-    xcb_create_pixmap (xcb_connection_t *connection,
-                       uint8_t           depth,     /* depth of the screen */
-                       xcb_pixmap_t      pixmapId,  /* id of the pixmap */
-                       xcb_drawable_t    drawable,
-                       uint16_t          width,     /* pixel width of the window */
-                       uint16_t          height );  /* pixel height of the window */
+[source.c]
+....
+xcb_void_cookie_t
+xcb_create_pixmap (xcb_connection_t *connection,
+                    uint8_t           depth,     /* depth of the screen */
+                    xcb_pixmap_t      pixmapId,  /* id of the pixmap */
+                    xcb_drawable_t    drawable,
+                    uint16_t          width,     /* pixel width of the window */
+                    uint16_t          height );  /* pixel height of the window */
+....
 TODO: Explain the drawable parameter, and give an example (like xpoints.c)
 
-3. Drawing a pixmap in a window
+=== 3. Drawing a pixmap in a window
 Once we got a handle to a pixmap, we can draw it on some window using the following function:
-
-    xcb_void_cookie_t
-    xcb_copy_area (xcb_connection_t *connection,
-                   xcb_drawable_t    src_drawable,  /* drawable we want to paste */
-                   xcb_drawable_t    dst_drawable,  /* drawable on which we copy the previous Drawable */
-                   xcb_gcontext_t    gc,            
-                   int16_t           src_x,         /* top left x coordinate of the region we want to copy */
-                   int16_t           src_y,         /* top left y coordinate of the region we want to copy */
-                   int16_t           dst_x,         /* top left x coordinate of the region where we want to copy */
-                   int16_t           dst_y,         /* top left y coordinate of the region where we want to copy */
-                   uint16_t          width,         /* pixel width of the region we want to copy */
-                   uint16_t          height );      /* pixel height of the region we want to copy */
+[source.c]
+....
+xcb_void_cookie_t
+xcb_copy_area (xcb_connection_t *connection,
+                xcb_drawable_t    src_drawable,  /* drawable we want to paste */
+                xcb_drawable_t    dst_drawable,  /* drawable on which we copy the previous Drawable */
+                xcb_gcontext_t    gc,            
+                int16_t           src_x,         /* top left x coordinate of the region we want to copy */
+                int16_t           src_y,         /* top left y coordinate of the region we want to copy */
+                int16_t           dst_x,         /* top left x coordinate of the region where we want to copy */
+                int16_t           dst_y,         /* top left y coordinate of the region where we want to copy */
+                uint16_t          width,         /* pixel width of the region we want to copy */
+                uint16_t          height );      /* pixel height of the region we want to copy */
+....
 As you can see, we could copy the whole pixmap as well as only a given rectangle of the pixmap. This is useful to optimize the drawing speed: we could copy only what we have modified in the pixmap.
 
 One important note should be made: it is possible to create pixmaps with different depths on the same screen. When we perform copy operations (a pixmap onto a window, etc), we should make sure that both source and target have the same depth. If they have a different depth, the operation will fail. The exception to this is if we copy a specific bit plane of the source pixmap using xcb_copy_plane(). In such an event, we can copy a specific plane to the target window (in actuality, setting a specific bit in the color of each pixel copied). This can be used to generate strange graphic effects in a window, but that is beyond the scope of this tutorial.
 
-4. Freeing a pixmap
+=== 4. Freeing a pixmap
 Finally, when we are done using a given pixmap, we should free it, in order to free resources of the X server. This is done using this function:
-
-    xcb_void_cookie_t
-    xcb_free_pixmap (xcb_connection_t *connection,
-                     xcb_pixmap_t pixmap );
+[source.c]
+....
+xcb_void_cookie_t
+xcb_free_pixmap (xcb_connection_t *connection,
+                    xcb_pixmap_t pixmap );
+....
 TODO: Give an example, or a link to xpoints.c
 
-Links: tutorial
+Links: link:../tutorial.adoc[tutorial]
+
 Last edited Mon 02 Nov 2009 02:55:18 PM UTC

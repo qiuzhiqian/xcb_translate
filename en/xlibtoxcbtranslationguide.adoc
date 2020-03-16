@@ -1,3 +1,5 @@
+= Xlib to xcb translation guide
+
 18. Translation of basic Xlib functions and macros
 The problem when you want to port an Xlib program to XCB is that you don't know if the Xlib function that you want to "translate" is a X Window one or an Xlib macro. In that section, we describe a way to translate the usual functions or macros that Xlib provides. It's usually just a member of a structure.
 

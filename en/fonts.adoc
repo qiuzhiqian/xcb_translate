@@ -1,4 +1,6 @@
-Handling text and fonts
+= Fonts
+
+== Handling text and fonts
 Besides drawing graphics on a window, we often want to draw text. Text strings have two major properties: the characters to be drawn and the font with which they are drawn. In order to draw text, we need to first request the X server to load a font. We then assign a font to a Graphic Context, and finally, we draw the text in a window using the Graphic Context.
 
 1. The Font structure

@@ -1,3 +1,5 @@
+= Mouse cursors
+
 Messing with the mouse cursor
 It it possible to modify the shape of the mouse pointer (also called the X pointer) when in certain states, as we often see in programs. For example, a busy application would often display the sand clock over its main window, to give the user a visual hint that they should wait. Let's see how we can change the mouse cursor of our windows.
 

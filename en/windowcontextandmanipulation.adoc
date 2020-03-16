@@ -1,3 +1,5 @@
+= Window context and mainpulation
+
 Interacting with the window manager
 After we have seen how to create windows and draw on them, we take one step back, and look at how our windows are interacting with their environment (the full screen and the other windows). First of all, our application needs to interact with the window manager. The window manager is responsible to decorating drawn windows (i.e. adding a frame, an iconify button, a system menu, a title bar, etc), as well as handling icons shown when windows are being iconified. It also handles ordering of windows on the screen, and other administrative tasks. We need to give it various hints as to how we want it to treat our application's windows.
 

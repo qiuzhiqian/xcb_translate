@@ -1,4 +1,4 @@
-= basicwindowsanddrawing
+= Basic windows and drawing
 
 == Creating a basic window - the "hello world" program
 

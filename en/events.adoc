@@ -1,193 +1,230 @@
-X Events
+= Events
+
+== X Events
 In an X program, everything is driven by events. Event painting on the screen is sometimes done as a response to an event (an Expose event). If part of a program's window that was hidden, gets exposed (e.g. the window was raised above other widows), the X server will send an "expose" event to let the program know it should repaint that part of the window. User input (key presses, mouse movement, etc) is also received as a set of events.
 
-1. Registering for event types using event masks
+=== 1. Registering for event types using event masks
 During the creation of a window, you should give it what kind of events it wishes to receive. Thus, you may register for various mouse (also called pointer) events, keyboard events, expose events, and so on. This is done for optimizing the server-to-client connection (i.e. why send a program (that might even be running at the other side of the globe) an event it is not interested in ?)
 
 In XCB, you use the "valuemask" and "valuelist" data in the xcb_create_window() function to register for events. Here is how we register for Expose event when creating a window:
-
-    mask = XCB_CW_EVENT_MASK;
-    valwin[0] = XCB_EVENT_MASK_EXPOSURE;
-    win = xcb_generate_id (connection);
-    xcb_create_window (connection, depth, window, root->root,
-                       0, 0, 150, 150, 10,
-                       XCB_WINDOW_CLASS_INPUT_OUTPUT, root->root_visual,
-                       mask, valwin );
+[source.c]
+....
+mask = XCB_CW_EVENT_MASK;
+valwin[0] = XCB_EVENT_MASK_EXPOSURE;
+win = xcb_generate_id (connection);
+xcb_create_window (connection, depth, window, root->root,
+                    0, 0, 150, 150, 10,
+                    XCB_WINDOW_CLASS_INPUT_OUTPUT, root->root_visual,
+                    mask, valwin );
+....
 XCB_EVENT_MASK_EXPOSURE is a constant defined in the xcb_event_mask_t enumeration in the "xproto.h" header file. If we wanted to register for several event types, we can logically "or" them, as follows:
-
-    mask = XCB_CW_EVENT_MASK;
-    valwin[0] = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS;
-    win = xcb_generate_id (connection);
-    xcb_create_window (connection, depth, window, root->root,
-                       0, 0, 150, 150, 10,
-                       XCB_WINDOW_CLASS_INPUT_OUTPUT, root->root_visual,
-                       mask, valwin );
+[source.c]
+....
+mask = XCB_CW_EVENT_MASK;
+valwin[0] = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS;
+win = xcb_generate_id (connection);
+xcb_create_window (connection, depth, window, root->root,
+                    0, 0, 150, 150, 10,
+                    XCB_WINDOW_CLASS_INPUT_OUTPUT, root->root_visual,
+                    mask, valwin );
+....
 This registers for Expose events as well as for mouse button presses inside the created window. You should note that a mask may represent several event sub-types.
 
 The values that a mask could take are given by the xcb_cw_t enumeration:
-
-    typedef enum {
-        XCB_CW_BACK_PIXMAP       = 1L<<0,
-        XCB_CW_BACK_PIXEL        = 1L<<1,
-        XCB_CW_BORDER_PIXMAP     = 1L<<2,
-        XCB_CW_BORDER_PIXEL      = 1L<<3,
-        XCB_CW_BIT_GRAVITY       = 1L<<4,
-        XCB_CW_WIN_GRAVITY       = 1L<<5,
-        XCB_CW_BACKING_STORE     = 1L<<6,
-        XCB_CW_BACKING_PLANES    = 1L<<7,
-        XCB_CW_BACKING_PIXEL     = 1L<<8,
-        XCB_CW_OVERRIDE_REDIRECT = 1L<<9,
-        XCB_CW_SAVE_UNDER        = 1L<<10,
-        XCB_CW_EVENT_MASK        = 1L<<11,
-        XCB_CW_DONT_PROPAGATE    = 1L<<12,
-        XCB_CW_COLORMAP          = 1L<<13,
-        XCB_CW_CURSOR            = 1L<<14
-    } xcb_cw_t;
+[source.c]
+....
+typedef enum {
+    XCB_CW_BACK_PIXMAP       = 1L<<0,
+    XCB_CW_BACK_PIXEL        = 1L<<1,
+    XCB_CW_BORDER_PIXMAP     = 1L<<2,
+    XCB_CW_BORDER_PIXEL      = 1L<<3,
+    XCB_CW_BIT_GRAVITY       = 1L<<4,
+    XCB_CW_WIN_GRAVITY       = 1L<<5,
+    XCB_CW_BACKING_STORE     = 1L<<6,
+    XCB_CW_BACKING_PLANES    = 1L<<7,
+    XCB_CW_BACKING_PIXEL     = 1L<<8,
+    XCB_CW_OVERRIDE_REDIRECT = 1L<<9,
+    XCB_CW_SAVE_UNDER        = 1L<<10,
+    XCB_CW_EVENT_MASK        = 1L<<11,
+    XCB_CW_DONT_PROPAGATE    = 1L<<12,
+    XCB_CW_COLORMAP          = 1L<<13,
+    XCB_CW_CURSOR            = 1L<<14
+} xcb_cw_t;
+....
 Note: we must be careful when setting the values of the valwin parameter, as they have to follow the order the xcb_cw_t enumeration. Here is an example:
-
-    mask = XCB_CW_EVENT_MASK | XCB_CW_BACK_PIXMAP;
-    valwin[0] = XCB_NONE;                                               /* for XCB_CW_BACK_PIXMAP (whose value is 1)     */
-    valwin[1] = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS;  /* for XCB_CW_EVENT_MASK, whose value (2048)     */
-                                                                        /* is greater than the one of XCB_CW_BACK_PIXMAP */
+[source.c]
+....
+mask = XCB_CW_EVENT_MASK | XCB_CW_BACK_PIXMAP;
+valwin[0] = XCB_NONE;                                               /* for XCB_CW_BACK_PIXMAP (whose value is 1)     */
+valwin[1] = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS;  /* for XCB_CW_EVENT_MASK, whose value (2048)     */
+                                                                    /* is greater than the one of XCB_CW_BACK_PIXMAP */
+....
 If the window has already been created, we can use the xcb_change_window_attributes() function to set the events that the window will receive. The subsection Configuring a window shows its prototype. As an example, here is a piece of code that configures the window to receive the Expose and ButtonPress events:
+[source.c]
+....
+const static uint32_t values[] = { XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS };
 
-    const static uint32_t values[] = { XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS };
-
-    xcb_change_window_attributes (connection, window, XCB_CW_EVENT_MASK, values);
+xcb_change_window_attributes (connection, window, XCB_CW_EVENT_MASK, values);
+....
 Note: A common programmer oversight is adding code to handle new event types while forgetting to add the masks for these events in the creation of the window. This leads to programmers debugging for hours, wondering "Why doesn't my program notice that I released the button?", only to find that they registered button press events but not button release events.
 
-2. Receiving events: writing the events loop
+=== 2. Receiving events: writing the events loop
 After we have registered for the event types we are interested in, we need to enter a loop of receiving events and handling them. There are two ways to receive events: a blocking way and a non-blocking way:
 
 The blocking way:
-
-    xcb_generic_event_t *xcb_wait_for_event (xcb_connection_t *c);
+[source.c]
+....
+xcb_generic_event_t *xcb_wait_for_event (xcb_connection_t *c);
+....
 ...blocks until an event is queued in the X server, then dequeues it from the queue, then returns it as a newly allocated structure (which is your responsibility to free). May return NULL in event of an error.
 
 The non-blocking way:
-
-    xcb_generic_event_t *xcb_poll_for_event (xcb_connection_t *c);
+[source.c]
+....
+xcb_generic_event_t *xcb_poll_for_event (xcb_connection_t *c);
+....
 ...immediately dequeues and returns an event, but returns NULL if no event is available at the time of the call. If an error occurs, the parameter error will be filled with the error status.
 
 Here's how you might use xcb_wait_for_event:
+[source.c]
+....
+xcb_generic_event_t *event;
 
-    xcb_generic_event_t *event;
-
-    while ( (event = xcb_wait_for_event (connection)) ) {
-        switch (event->response_type & ~0x80) {
-        case XCB_EXPOSE: {
-            xcb_expose_event_t *expose = (xcb_expose_event_t *)event;
-            /* ...do stuff */
-            break;
-        }
-        case XCB_BUTTON_PRESS: {
-            xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
-            /* ...do stuff */
-            break;
-        }
-        default:
-            /* Unknown event type, ignore it */
-            break;
-        }
-
-        free (event);
+while ( (event = xcb_wait_for_event (connection)) ) {
+    switch (event->response_type & ~0x80) {
+    case XCB_EXPOSE: {
+        xcb_expose_event_t *expose = (xcb_expose_event_t *)event;
+        /* ...do stuff */
+        break;
     }
+    case XCB_BUTTON_PRESS: {
+        xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
+        /* ...do stuff */
+        break;
+    }
+    default:
+        /* Unknown event type, ignore it */
+        break;
+    }
+
+    free (event);
+}
+....
 Non-blocking handling in Xlib looks like this:
-
-    while (XPending (display)) {
-        XEvent event;
-        XNextEvent(display, &event);
-        /* ...handle the event */
-    }
+[source.c]
+....
+while (XPending (display)) {
+    XEvent event;
+    XNextEvent(display, &event);
+    /* ...handle the event */
+}
+....
 The equivalent in XCB looks like:
+[source.c]
+....
+xcb_generic_event_t *event;
 
-    xcb_generic_event_t *event;
-
-    while ( (event = xcb_poll_for_event (connection, 0)) ) {
-        /* ...handle the event */
-    }
+while ( (event = xcb_poll_for_event (connection, 0)) ) {
+    /* ...handle the event */
+}
+....
 Basically, the events are managed in the same way as with xcb_wait_for_event. Obviously, your endless event handling loop will need to give the user some way of terminating the program. This is usually done by handling a special "quit" event, as we will soon see.
 
 Comparison Xlib/XCB:
 
-XNextEvent () =>
-
+- XNextEvent () =>
+[source.c]
+....
 xcb_wait_for_event ()
-XPending () , XCheckMaskEvent () =>
-
+....
+- XPending () , XCheckMaskEvent () =>
+[source.c]
+....
 xcb_poll_for_event ()
-3. Expose events
+....
+
+=== 3. Expose events
 The Expose event is one of the most basic (and most used) events an application may receive. It will be sent to us in one of several cases:
 
-A window that covered part of our window has moved away, exposing part (or all) of our window.
-Our window was raised above other windows.
-Our window was mapped for the first time.
-Our window was de-iconified (to 'iconify' a window is to minimize it or send it to the tray such that it is not shown at all)
+- A window that covered part of our window has moved away, exposing part (or all) of our window.
+- Our window was raised above other windows.
+- Our window was mapped for the first time.
+- Our window was de-iconified (to 'iconify' a window is to minimize it or send it to the tray such that it is not shown at all)
+
 Note the implicit assumption here: the content of our window is lost when it is being obscured (covered) by other windows. The reason the X server does not save this content is to save memory. After all, the number of windows on a display at a given time may be very large, so storing the contents of all of them might require a lot of memory. (Actually, there is a way to tell the X server to store the contents of a window in special cases, as we will see later.)
 
 Expose event definition:
+[source.c]
+....
+typedef struct {
+    uint8_t      response_type; /* The type of the event, here it is XCB_EXPOSE */
+    uint8_t      pad0;
+    uint16_t     sequence;
+    xcb_window_t window;        /* The Id of the window that receives the event (in case */
+                                /* our application registered for events on several windows */
+    uint16_t     x;             /* The x coordinate of the top-left part of the window that needs to be redrawn */
+    uint16_t     y;             /* The y coordinate of the top-left part of the window that needs to be redrawn */
+    uint16_t     width;         /* The width of the part of the window that needs to be redrawn */
+    uint16_t     height;        /* The height of the part of the window that needs to be redrawn */
+    uint16_t     count;
+} xcb_expose_event_t;
+....
 
-    typedef struct {
-        uint8_t      response_type; /* The type of the event, here it is XCB_EXPOSE */
-        uint8_t      pad0;
-        uint16_t     sequence;
-        xcb_window_t window;        /* The Id of the window that receives the event (in case */
-                                    /* our application registered for events on several windows */
-        uint16_t     x;             /* The x coordinate of the top-left part of the window that needs to be redrawn */
-        uint16_t     y;             /* The y coordinate of the top-left part of the window that needs to be redrawn */
-        uint16_t     width;         /* The width of the part of the window that needs to be redrawn */
-        uint16_t     height;        /* The height of the part of the window that needs to be redrawn */
-        uint16_t     count;
-    } xcb_expose_event_t;
-4. Getting user input
+=== 4. Getting user input
 User input traditionally comes from two sources: the mouse and the keyboard. Various event types exist to notify us of user input (a key being presses on the keyboard, a key being released on the keyboard, the mouse moving over our window, the mouse entering (or leaving) our window, and so on.
 
-4.1 Mouse button press and release events
+==== 4.1 Mouse button press and release events
 The first event type we will deal with is a mouse button-press (or button-release) event in our window. In order to register to such an event type, we should add one (or more) of the following masks when we create our window:
-
-    XCB_EVENT_MASK_BUTTON_PRESS     //notify us of any button that was pressed in one of our windows.
-    XCB_EVENT_MASK_BUTTON_RELEASE   //notify us of any button that was released in one of our windows.
+[source.c]
+....
+XCB_EVENT_MASK_BUTTON_PRESS     //notify us of any button that was pressed in one of our windows.
+XCB_EVENT_MASK_BUTTON_RELEASE   //notify us of any button that was released in one of our windows.
+....
 Both kinds of events are represented with the same structure, but for the sake of self-documentation, it goes by two names:
+[source.c]
+....
+typedef struct {
+    uint8_t         response_type; /* The type of the event, here it is xcb_button_press_event_t or xcb_button_release_event_t */
+    xcb_button_t    detail;
+    uint16_t        sequence;
+    xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
+    xcb_window_t    root;
+    xcb_window_t    event;
+    xcb_window_t    child;
+    int16_t         root_x;
+    int16_t         root_y;
+    int16_t         event_x;       /* The x coordinate where the mouse has been pressed in the window */
+    int16_t         event_y;       /* The y coordinate where the mouse has been pressed in the window */
+    uint16_t        state;         /* A mask of the buttons (or keys) during the event */
+    uint8_t         same_screen;
+} xcb_button_press_event_t;
 
-    typedef struct {
-        uint8_t         response_type; /* The type of the event, here it is xcb_button_press_event_t or xcb_button_release_event_t */
-        xcb_button_t    detail;
-        uint16_t        sequence;
-        xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
-        xcb_window_t    root;
-        xcb_window_t    event;
-        xcb_window_t    child;
-        int16_t         root_x;
-        int16_t         root_y;
-        int16_t         event_x;       /* The x coordinate where the mouse has been pressed in the window */
-        int16_t         event_y;       /* The y coordinate where the mouse has been pressed in the window */
-        uint16_t        state;         /* A mask of the buttons (or keys) during the event */
-        uint8_t         same_screen;
-    } xcb_button_press_event_t;
-
-    typedef xcb_button_press_event_t xcb_button_release_event_t;
+typedef xcb_button_press_event_t xcb_button_release_event_t;
+....
 The time field may be used to calculate "double-click" situations by an application (e.g. if the mouse button was clicked two times in a duration shorter than a given amount of time, assume this was a double click).
 
 The state field is a mask of the buttons held down during the event. It is a bitwise OR of any of the following (from the xcbbuttonmaskt and xcbmodmaskt enumerations):
-
-    XCB_BUTTON_MASK_1
-    XCB_BUTTON_MASK_2
-    XCB_BUTTON_MASK_3
-    XCB_BUTTON_MASK_4
-    XCB_BUTTON_MASK_5
-    XCB_MOD_MASK_SHIFT
-    XCB_MOD_MASK_LOCK
-    XCB_MOD_MASK_CONTROL
-    XCB_MOD_MASK_1
-    XCB_MOD_MASK_2
-    XCB_MOD_MASK_3
-    XCB_MOD_MASK_4
-    XCB_MOD_MASK_5
+[source.c]
+....
+XCB_BUTTON_MASK_1
+XCB_BUTTON_MASK_2
+XCB_BUTTON_MASK_3
+XCB_BUTTON_MASK_4
+XCB_BUTTON_MASK_5
+XCB_MOD_MASK_SHIFT
+XCB_MOD_MASK_LOCK
+XCB_MOD_MASK_CONTROL
+XCB_MOD_MASK_1
+XCB_MOD_MASK_2
+XCB_MOD_MASK_3
+XCB_MOD_MASK_4
+XCB_MOD_MASK_5
+....
 Their names are self explanatory, where the first 5 refer to the mouse buttons that are being pressed, while the rest refer to various "special keys" that are being pressed (Mod mask 1 is usually the 'Alt' key or the 'Meta' key).
 
 TODO: Problem: it seems that the state does not change when clicking with various buttons.
 
-4.2. Mouse movement events
+==== 4.2. Mouse movement events
 Similar to mouse button press and release events, we also can be notified of various mouse movement events. These can be split into two families. One is of mouse pointer movement while no buttons are pressed, and the second is a mouse pointer motion while one (or more) of the buttons are pressed (this is sometimes called "a mouse drag operation", or just "dragging"). The following event masks may be added during the creation of our window to register for these events:
 
 XCB_EVENT_MASK_POINTER_MOTION   // motion with no mouse button held
@@ -198,51 +235,60 @@ XCB_EVENT_MASK_BUTTON_3_MOTION
 XCB_EVENT_MASK_BUTTON_4_MOTION
 XCB_EVENT_MASK_BUTTON_5_MOTION
 These all generate events of this type:
+[source.c]
+....
+typedef struct {
+    uint8_t         response_type; /* The type of the event */
+    uint8_t         detail;
+    uint16_t        sequence;
+    xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
+    xcb_window_t    root;
+    xcb_window_t    event;
+    xcb_window_t    child;
+    int16_t         root_x;
+    int16_t         root_y;
+    int16_t         event_x;       /* The x coordinate of the mouse when the  event was generated */
+    int16_t         event_y;       /* The y coordinate of the mouse when the  event was generated */
+    uint16_t        state;         /* A mask of the buttons (or keys) during the event */
+    uint8_t         same_screen;
+} xcb_motion_notify_event_t;
+....
 
-    typedef struct {
-        uint8_t         response_type; /* The type of the event */
-        uint8_t         detail;
-        uint16_t        sequence;
-        xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
-        xcb_window_t    root;
-        xcb_window_t    event;
-        xcb_window_t    child;
-        int16_t         root_x;
-        int16_t         root_y;
-        int16_t         event_x;       /* The x coordinate of the mouse when the  event was generated */
-        int16_t         event_y;       /* The y coordinate of the mouse when the  event was generated */
-        uint16_t        state;         /* A mask of the buttons (or keys) during the event */
-        uint8_t         same_screen;
-    } xcb_motion_notify_event_t;
-4.3. Mouse pointer enter and leave events
+==== 4.3. Mouse pointer enter and leave events
 Another type of event that applications might be interested in, is a mouse pointer entering a window the program controls, or leaving such a window. Some programs use these events to show the user that the application is now in focus. In order to register for such an event type, we should add one (or more) of the following masks when we create our window:
-
+[source.c]
+....
 XCB_EVENT_MASK_ENTER_WINDOW     // notify us when the mouse pointer enters any of our controlled windows.
 XCB_EVENT_MASK_LEAVE_WINDOW     // notify us when the mouse pointer leaves any of our controlled windows. 
+....
+
 The structure to be checked for in our events loop is the same for these two events, and is the following:
+[source.c]
+....
+typedef struct {
+    uint8_t         response_type; /* The type of the event */
+    uint8_t         detail;
+    uint16_t        sequence;
+    xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
+    xcb_window_t    root;
+    xcb_window_t    event;
+    xcb_window_t    child;
+    int16_t         root_x;
+    int16_t         root_y;
+    int16_t         event_x;       /* The x coordinate of the mouse when the  event was generated */
+    int16_t         event_y;       /* The y coordinate of the mouse when the  event was generated */
+    uint16_t        state;         /* A mask of the buttons (or keys) during the event */
+    uint8_t         mode;          /* The number of mouse button that was clicked */
+    uint8_t         same_screen_focus;
+} xcb_enter_notify_event_t;
 
-              typedef struct {
-                  uint8_t         response_type; /* The type of the event */
-                  uint8_t         detail;
-                  uint16_t        sequence;
-                  xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
-                  xcb_window_t    root;
-                  xcb_window_t    event;
-                  xcb_window_t    child;
-                  int16_t         root_x;
-                  int16_t         root_y;
-                  int16_t         event_x;       /* The x coordinate of the mouse when the  event was generated */
-                  int16_t         event_y;       /* The y coordinate of the mouse when the  event was generated */
-                  uint16_t        state;         /* A mask of the buttons (or keys) during the event */
-                  uint8_t         mode;          /* The number of mouse button that was clicked */
-                  uint8_t         same_screen_focus;
-              } xcb_enter_notify_event_t;
+typedef xcb_enter_notify_event_t xcb_leave_notify_event_t;
+....
 
-              typedef xcb_enter_notify_event_t xcb_leave_notify_event_t;
-4.4. The keyboard focus
+==== 4.4. The keyboard focus
 There may be many windows on a screen, but only a single keyboard attached to them. How does the X server then know which window should be sent a given keyboard input ? This is done using the keyboard focus. Only a single window on the screen may have the keyboard focus at a given time. There is a XCB function that allows a program to set the keyboard focus to a given window. The user can usually set the keyboard focus using the window manager (often by clicking on the title bar of the desired window). Once our window has the keyboard focus, every key press or key release will cause an event to be sent to our program (if it registered for these event types...).
 
-4.5. Keyboard press and release events
+==== 4.5. Keyboard press and release events
 If a window controlled by our program currently holds the keyboard focus, it can receive key press and key release events. So, we should add one (or more) of the following masks when we create our window:
 
     XCB_EVENT_MASK_KEY_PRESS     // key was pressed while any of our controlled windows had the keyboard focus
@@ -268,156 +314,158 @@ These generate events of the same type, which goes by two names:
     typedef xcb_key_press_event_t  xcb_key_release_event_t;
 TODO: Talk about getting the ASCII code from the key code.
 
-5. X events: a complete example
+=== 5. X events: a complete example
 As an example for handling events, we show a program that creates a window, enters an events loop and checks for all the events described above, and writes on the terminal the relevant characteristics of the event. With this code, it should be easy to add drawing operations, like those which have been described above.
+[source.c]
+....
+#include <stdlib.h>
+#include <stdio.h>
+#include <inttypes.h>
 
-    #include <stdlib.h>
-    #include <stdio.h>
-    #include <inttypes.h>
+#include <xcb/xcb.h>
 
-    #include <xcb/xcb.h>
+/* print names of modifiers present in mask */
+void
+print_modifiers (uint32_t mask)
+{
+    const char *MODIFIERS[] = {
+            "Shift", "Lock", "Ctrl", "Alt",
+            "Mod2", "Mod3", "Mod4", "Mod5",
+            "Button1", "Button2", "Button3", "Button4", "Button5"
+    };
 
-    /* print names of modifiers present in mask */
-    void
-    print_modifiers (uint32_t mask)
-    {
-        const char *MODIFIERS[] = {
-                "Shift", "Lock", "Ctrl", "Alt",
-                "Mod2", "Mod3", "Mod4", "Mod5",
-                "Button1", "Button2", "Button3", "Button4", "Button5"
-        };
-
-        printf ("Modifier mask: ");
-        for (const char **modifier = MODIFIERS ; mask; mask >>= 1, ++modifier) {
-            if (mask & 1) {
-                printf (*modifier);
-            }
+    printf ("Modifier mask: ");
+    for (const char **modifier = MODIFIERS ; mask; mask >>= 1, ++modifier) {
+        if (mask & 1) {
+            printf (*modifier);
         }
-        printf ("\n");
     }
+    printf ("\n");
+}
 
-    int
-    main ()
-    {
-        /* Open the connection to the X server */
-        xcb_connection_t *connection = xcb_connect (NULL, NULL);
+int
+main ()
+{
+    /* Open the connection to the X server */
+    xcb_connection_t *connection = xcb_connect (NULL, NULL);
 
-        /* Get the first screen */
-        xcb_screen_t *screen = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
+    /* Get the first screen */
+    xcb_screen_t *screen = xcb_setup_roots_iterator (xcb_get_setup (connection)).data;
 
 
-        /* Create the window */
-        xcb_window_t window    = xcb_generate_id (connection);
+    /* Create the window */
+    xcb_window_t window    = xcb_generate_id (connection);
 
-        uint32_t     mask      = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-        uint32_t     values[2] = {screen->white_pixel,
-                                    XCB_EVENT_MASK_EXPOSURE       | XCB_EVENT_MASK_BUTTON_PRESS   |
-                                    XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION |
-                                    XCB_EVENT_MASK_ENTER_WINDOW   | XCB_EVENT_MASK_LEAVE_WINDOW   |
-                                    XCB_EVENT_MASK_KEY_PRESS      | XCB_EVENT_MASK_KEY_RELEASE };
+    uint32_t     mask      = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
+    uint32_t     values[2] = {screen->white_pixel,
+                                XCB_EVENT_MASK_EXPOSURE       | XCB_EVENT_MASK_BUTTON_PRESS   |
+                                XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION |
+                                XCB_EVENT_MASK_ENTER_WINDOW   | XCB_EVENT_MASK_LEAVE_WINDOW   |
+                                XCB_EVENT_MASK_KEY_PRESS      | XCB_EVENT_MASK_KEY_RELEASE };
 
-        xcb_create_window (connection,    
-                           0,                             /* depth               */
-                           window,                        
-                           screen->root,                  /* parent window       */
-                           0, 0,                          /* x, y                */
-                           150, 150,                      /* width, height       */
-                           10,                            /* border_width        */
-                           XCB_WINDOW_CLASS_INPUT_OUTPUT, /* class               */
-                           screen->root_visual,           /* visual              */
-                           mask, values );                /* masks */
+    xcb_create_window (connection,    
+                        0,                             /* depth               */
+                        window,                        
+                        screen->root,                  /* parent window       */
+                        0, 0,                          /* x, y                */
+                        150, 150,                      /* width, height       */
+                        10,                            /* border_width        */
+                        XCB_WINDOW_CLASS_INPUT_OUTPUT, /* class               */
+                        screen->root_visual,           /* visual              */
+                        mask, values );                /* masks */
 
-        /* Map the window on the screen */
-        xcb_map_window (connection, window);
+    /* Map the window on the screen */
+    xcb_map_window (connection, window);
 
-        xcb_flush (connection);
+    xcb_flush (connection);
 
-        xcb_generic_event_t *event;
-        while ( (event = xcb_wait_for_event (connection)) ) {
-            switch (event->response_type & ~0x80) {
-            case XCB_EXPOSE: {
-                xcb_expose_event_t *expose = (xcb_expose_event_t *)event;
+    xcb_generic_event_t *event;
+    while ( (event = xcb_wait_for_event (connection)) ) {
+        switch (event->response_type & ~0x80) {
+        case XCB_EXPOSE: {
+            xcb_expose_event_t *expose = (xcb_expose_event_t *)event;
 
-                printf ("Window %"PRIu32" exposed. Region to be redrawn at location (%"PRIu16",%"PRIu16"), with dimension (%"PRIu16",%"PRIu16")\n",
-                        expose->window, expose->x, expose->y, expose->width, expose->height );
+            printf ("Window %"PRIu32" exposed. Region to be redrawn at location (%"PRIu16",%"PRIu16"), with dimension (%"PRIu16",%"PRIu16")\n",
+                    expose->window, expose->x, expose->y, expose->width, expose->height );
+            break;
+        }
+        case XCB_BUTTON_PRESS: {
+            xcb_button_press_event_t *bp = (xcb_button_press_event_t *)event;
+            print_modifiers (bp->state);
+
+            switch (bp->detail) {
+            case 4:
+                printf ("Wheel Button up in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
+                        bp->event, bp->event_x, bp->event_y );
                 break;
-            }
-            case XCB_BUTTON_PRESS: {
-                xcb_button_press_event_t *bp = (xcb_button_press_event_t *)event;
-                print_modifiers (bp->state);
-
-                switch (bp->detail) {
-                case 4:
-                    printf ("Wheel Button up in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
-                            bp->event, bp->event_x, bp->event_y );
-                    break;
-                case 5:
-                    printf ("Wheel Button down in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
-                            bp->event, bp->event_x, bp->event_y );
-                    break;
-                default:
-                    printf ("Button %"PRIu8" pressed in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
-                            bp->detail, bp->event, bp->event_x, bp->event_y );
-                    break;
-                }
+            case 5:
+                printf ("Wheel Button down in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
+                        bp->event, bp->event_x, bp->event_y );
                 break;
-            }
-            case XCB_BUTTON_RELEASE: {
-                xcb_button_release_event_t *br = (xcb_button_release_event_t *)event;
-                print_modifiers(br->state);
-
-                printf ("Button %"PRIu8" released in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
-                        br->detail, br->event, br->event_x, br->event_y );
-                break;
-            }
-            case XCB_MOTION_NOTIFY: {
-                xcb_motion_notify_event_t *motion = (xcb_motion_notify_event_t *)event;
-
-                printf ("Mouse moved in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
-                        motion->event, motion->event_x, motion->event_y );
-                break;
-            }
-            case XCB_ENTER_NOTIFY: {
-                xcb_enter_notify_event_t *enter = (xcb_enter_notify_event_t *)event;
-
-                printf ("Mouse entered window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
-                        enter->event, enter->event_x, enter->event_y );
-                break;
-            }
-            case XCB_LEAVE_NOTIFY: {
-                xcb_leave_notify_event_t *leave = (xcb_leave_notify_event_t *)event;
-
-                printf ("Mouse left window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
-                        leave->event, leave->event_x, leave->event_y );
-                break;
-            }
-            case XCB_KEY_PRESS: {
-                xcb_key_press_event_t *kp = (xcb_key_press_event_t *)event;
-                print_modifiers(kp->state);
-
-                printf ("Key pressed in window %"PRIu32"\n",
-                        kp->event);
-                break;
-            }
-            case XCB_KEY_RELEASE: {
-                xcb_key_release_event_t *kr = (xcb_key_release_event_t *)event;
-                print_modifiers(kr->state);
-
-                printf ("Key released in window %"PRIu32"\n",
-                        kr->event);
-                break;
-            }
             default:
-                /* Unknown event type, ignore it */
-                printf ("Unknown event: %"PRIu8"\n",
-                        event->response_type);
+                printf ("Button %"PRIu8" pressed in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
+                        bp->detail, bp->event, bp->event_x, bp->event_y );
                 break;
             }
+            break;
+        }
+        case XCB_BUTTON_RELEASE: {
+            xcb_button_release_event_t *br = (xcb_button_release_event_t *)event;
+            print_modifiers(br->state);
 
-            free (event);
+            printf ("Button %"PRIu8" released in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
+                    br->detail, br->event, br->event_x, br->event_y );
+            break;
+        }
+        case XCB_MOTION_NOTIFY: {
+            xcb_motion_notify_event_t *motion = (xcb_motion_notify_event_t *)event;
+
+            printf ("Mouse moved in window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
+                    motion->event, motion->event_x, motion->event_y );
+            break;
+        }
+        case XCB_ENTER_NOTIFY: {
+            xcb_enter_notify_event_t *enter = (xcb_enter_notify_event_t *)event;
+
+            printf ("Mouse entered window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
+                    enter->event, enter->event_x, enter->event_y );
+            break;
+        }
+        case XCB_LEAVE_NOTIFY: {
+            xcb_leave_notify_event_t *leave = (xcb_leave_notify_event_t *)event;
+
+            printf ("Mouse left window %"PRIu32", at coordinates (%"PRIi16",%"PRIi16")\n",
+                    leave->event, leave->event_x, leave->event_y );
+            break;
+        }
+        case XCB_KEY_PRESS: {
+            xcb_key_press_event_t *kp = (xcb_key_press_event_t *)event;
+            print_modifiers(kp->state);
+
+            printf ("Key pressed in window %"PRIu32"\n",
+                    kp->event);
+            break;
+        }
+        case XCB_KEY_RELEASE: {
+            xcb_key_release_event_t *kr = (xcb_key_release_event_t *)event;
+            print_modifiers(kr->state);
+
+            printf ("Key released in window %"PRIu32"\n",
+                    kr->event);
+            break;
+        }
+        default:
+            /* Unknown event type, ignore it */
+            printf ("Unknown event: %"PRIu8"\n",
+                    event->response_type);
+            break;
         }
 
-        return 0;
+        free (event);
     }
+
+    return 0;
+}
+....
 Links: XcbPorting tutorial
 Last edited Tue 03 Dec 2013 05:20:34 AM UTC
