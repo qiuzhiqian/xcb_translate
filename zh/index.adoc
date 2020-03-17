@@ -35,7 +35,7 @@ X协议C语言绑定（XCB）替代了Xlib，具有占用空间小，低延迟�
 - 当然，现在仍然还有很多 link:xcb/todo.adoc[待完成]内容。
 
 == 文档
-- https://xcb.freedesktop.org/XcbApi/[XCB API]已经文档化了. 此处还有一个 link:xcb/tutorial.adoc[教程]和一些零散的link:xcb/xcbnote.adoc笔记。
+- https://xcb.freedesktop.org/XcbApi/[XCB API]已经文档化了. 此处还有一个 link:xcb/tutorial.adoc[教程]和一些零散的 link:xcb/xcbnote.adoc[笔记]。
 - 如果想进行上层应用的开发，可以使用 https://xcb.freedesktop.org/XcbUtil/[xcb-util].
 - XCB是构建在一个由XML描述的X核心协议以及被称为XML/XCB的通用拓展协议之上的。该协议可以以其他有趣的方式使用。X窗口协议文档同样可以在 http://www.x.org/releases/X11R7.7/doc/index.html#protocol[X.org的官网]上获取到。并且可以与XCB文档结合使用，因为XCB方法在很大程度上反映了协议。
 - 为了帮助移植应用程序，您可以配置Xlib以将XCB用于传输层. 我们把这称之为 https://xcb.freedesktop.org/XlibXcb/[Xlib/XCB].

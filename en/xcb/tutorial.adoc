@@ -20,16 +20,17 @@ After reading this tutorial, one should be able to write very simple graphical p
 == What is XCB and why does it exist?
 XCB ("X C Binding") is an low-level API for the X window server. XCB is an alternative to Xlib, which has been the standard C binding for the X Window System protocol for many years now. Xlib is an excellent piece of work, but there are applications for which it is not ideal, for example:
 
-Small platforms: Xlib is a large piece of code, and it's difficult to make it smaller
-Latency hiding: Xlib requests requiring a reply are effectively synchronous: they block until the reply appears, whether the result is needed immediately or not.
-Direct access to the protocol: Xlib does quite a bit of caching, layering, and similar optimizations. While this is normally a feature, it makes it difficult to simply emit specified X protocol requests and process specific responses.
-Threaded applications: While Xlib does attempt to support multithreading, the API makes this difficult and error-prone.
-New extensions: The Xlib infrastructure provides limited support for the new creation of X extension client side code.
+- **Small platforms**: Xlib is a large piece of code, and it's difficult to make it smaller
+- **Latency hiding**: Xlib requests requiring a reply are effectively synchronous: they block until the reply appears, whether the result is needed immediately or not.
+- **Direct access to the protocol**: Xlib does quite a bit of caching, layering, and similar optimizations. While this is normally a feature, it makes it difficult to simply emit specified X protocol requests and process specific responses.
+- **Threaded applications**: While Xlib does attempt to support multithreading, the API makes this difficult and error-prone.
+- **New extensions**: The Xlib infrastructure provides limited support for the new creation of X extension client side code.
+
 XCB has been designed to solve the above problems and thus provide a base for:
 
-Toolkit implementation.
-Direct protocol-level programming.
-Lightweight emulation of commonly used portions of the Xlib API.
+- Toolkit implementation.
+- Direct protocol-level programming.
+- Lightweight emulation of commonly used portions of the Xlib API.
 
 == The client and server model of the X window system
 The X Window System was developed with one major goal: flexibility. The idea was that the way things look is one thing, but the way things work is another matter. Thus, the lower levels provide the tools required to draw windows, handle user input, allow drawing graphics using colors (or black and white screens), etc. To this point, a decision was made to separate the system into two parts. A client that decides what to do, and a server that actually draws on the screen and reads user input in order to send it to the client for processing.
@@ -45,15 +46,15 @@ This also implies that the program may not perform operations that might take a 
 
 So the way a GUI program looks is something like that:
 
-Perform initialization routines.
-Connect to the X server.
-Perform X-related initialization.
-While not finished:
-Receive the next event from the X server.
-Handle the event, possibly sending various drawing requests to the X server.
-If the event was a quit message, exit the loop.
-Close down the connection to the X server.
-Perform cleanup operations.
+. Perform initialization routines.
+. Connect to the X server.
+. Perform X-related initialization.
+. While not finished:
+.. Receive the next event from the X server.
+.. Handle the event, possibly sending various drawing requests to the X server.
+.. If the event was a quit message, exit the loop.
+. Close down the connection to the X server.
+. Perform cleanup operations.
 
 == Basic XCB notions
 XCB has been created to eliminate the need for programs to actually implement the X protocol layer. This library gives a program a very low-level access to any X server. Since the protocol is standardized, a client using any implementation of XCB may talk with any X server (the same occurs for Xlib, of course). We now give a brief description of the basic XCB notions. They will be detailed later.
@@ -260,27 +261,32 @@ TODO: These instructions are out of date. Just reference the main XCB page so we
 
 To build XCB from source, you need to have installed at least:
 
-pkgconfig 0.15.0
-automake 1.7
-autoconf 2.50
-check
-xsltproc
-gperf 3.0.1
+* pkgconfig 0.15.0
+* automake 1.7
+* autoconf 2.50
+* check
+* xsltproc
+* gperf 3.0.1
+
 You have to checkout in the git repository the following modules:
 
-Xau from xlibs
-xcb-proto
-xcb
+* Xau from xlibs
+* xcb-proto
+* xcb
+
 Note that xcb-proto exists only to install header files, so typing 'make' or 'make all' will produce the message "Nothing to be done for 'all'". That's normal.
 
 === 2. Compiling XCB-based programs
 Compiling XCB-based programs requires linking them with the XCB library. This is easily done thanks to pkgconfig:
-
+[source.bash]
+....
 gcc -Wall prog.c -o prog `pkg-config --cflags --libs xcb`
+....
 or simply :
-
+[source.bash]
+....
 gcc -Wall prog.c -lxcb
-
+....
 == Opening and closing the connection to an X server
 An X program first needs to open the connection to the X server, using xcb_connect():
 [source.c]
@@ -381,5 +387,7 @@ main ()
 
 == The window hierarchy
 TODO
+
+Links: link:../index.adoc[index]
 
 Last edited Sat 29 Mar 2014 03:59:04 PM UTC

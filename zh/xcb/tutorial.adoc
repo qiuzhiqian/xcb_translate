@@ -13,23 +13,24 @@
 - link:xlibtoxcbtranslationguide.adoc[从Xlib迁移到XCB指南]
 
 == 介绍
-This tutorial is intended for people who want to program with the XCB library. Keep in mind that XCB, like the Xlib library, isn't what most programmers wanting to write X applications are looking for. Rather, most application developers will want to use a much higher-level GUI toolkit, like Motif, LessTiff, GTK, Qt, EWL, or ETK or perhaps use the higher-level drawing library Cairo. However, the basics of XCB are not all that complicated, and knowing about the layers those other libraries are built on top of is not a bad idea.
+本教程适用于希望使用XCB库进行编程的人。请记住，就像Xlib库一样，XCB并不是大多数想要编写X应用程序的程序员所寻找的东西。而是，大多数应用程序开发人员应该希望使用更高级的GUI工具包，例如Motif，LessTiff，GTK，Qt，EWL或ETK，或者可能使用更高级的图形库Cairo。但是，XCB的基础并不是那么复杂，了解其他库在其之上构建的层并不是一个坏的打算。
 
-After reading this tutorial, one should be able to write very simple graphical programs but not write programs with decent user interfaces (at least easily). For real applications, the previously mentioned libraries are much more appropriate.
+阅读完本教程后，应该能够编写非常简单的图形程序，但不能（至少想很容易）编写具有良好用户界面的程序。 对于实际应用，前面提到的库更合适。
 
 == XCB是什么？存在的目的是什么？
 XCB ("X C Binding") is an low-level API for the X window server. XCB is an alternative to Xlib, which has been the standard C binding for the X Window System protocol for many years now. Xlib is an excellent piece of work, but there are applications for which it is not ideal, for example:
 
-Small platforms: Xlib is a large piece of code, and it's difficult to make it smaller
-Latency hiding: Xlib requests requiring a reply are effectively synchronous: they block until the reply appears, whether the result is needed immediately or not.
-Direct access to the protocol: Xlib does quite a bit of caching, layering, and similar optimizations. While this is normally a feature, it makes it difficult to simply emit specified X protocol requests and process specific responses.
-Threaded applications: While Xlib does attempt to support multithreading, the API makes this difficult and error-prone.
-New extensions: The Xlib infrastructure provides limited support for the new creation of X extension client side code.
+- **Small platforms**: Xlib is a large piece of code, and it's difficult to make it smaller
+- **Latency hiding**: Xlib requests requiring a reply are effectively synchronous: they block until the reply appears, whether the result is needed immediately or not.
+- **Direct access to the protocol**: Xlib does quite a bit of caching, layering, and similar optimizations. While this is normally a feature, it makes it difficult to simply emit specified X protocol requests and process specific responses.
+- **Threaded applications**: While Xlib does attempt to support multithreading, the API makes this difficult and error-prone.
+- **New extensions**: The Xlib infrastructure provides limited support for the new creation of X extension client side code.
+
 XCB has been designed to solve the above problems and thus provide a base for:
 
-Toolkit implementation.
-Direct protocol-level programming.
-Lightweight emulation of commonly used portions of the Xlib API.
+- Toolkit implementation.
+- Direct protocol-level programming.
+- Lightweight emulation of commonly used portions of the Xlib API.
 
 == X窗口系统的客户端和服务器模型
 The X Window System was developed with one major goal: flexibility. The idea was that the way things look is one thing, but the way things work is another matter. Thus, the lower levels provide the tools required to draw windows, handle user input, allow drawing graphics using colors (or black and white screens), etc. To this point, a decision was made to separate the system into two parts. A client that decides what to do, and a server that actually draws on the screen and reads user input in order to send it to the client for processing.
@@ -45,15 +46,15 @@ This also implies that the program may not perform operations that might take a 
 
 So the way a GUI program looks is something like that:
 
-Perform initialization routines.
-Connect to the X server.
-Perform X-related initialization.
-While not finished:
-Receive the next event from the X server.
-Handle the event, possibly sending various drawing requests to the X server.
-If the event was a quit message, exit the loop.
-Close down the connection to the X server.
-Perform cleanup operations.
+. Perform initialization routines.
+. Connect to the X server.
+. Perform X-related initialization.
+. While not finished:
+.. Receive the next event from the X server.
+.. Handle the event, possibly sending various drawing requests to the X server.
+.. If the event was a quit message, exit the loop.
+. Close down the connection to the X server.
+. Perform cleanup operations.
 
 == XCB基本概念
 XCB has been created to eliminate the need for programs to actually implement the X protocol layer. This library gives a program a very low-level access to any X server. Since the protocol is standardized, a client using any implementation of XCB may talk with any X server (the same occurs for Xlib, of course). We now give a brief description of the basic XCB notions. They will be detailed later.
@@ -260,26 +261,33 @@ TODO: These instructions are out of date. Just reference the main XCB page so we
 
 To build XCB from source, you need to have installed at least:
 
-pkgconfig 0.15.0
-automake 1.7
-autoconf 2.50
-check
-xsltproc
-gperf 3.0.1
+* pkgconfig 0.15.0
+* automake 1.7
+* autoconf 2.50
+* check
+* xsltproc
+* gperf 3.0.1
+
 You have to checkout in the git repository the following modules:
 
-Xau from xlibs
-xcb-proto
-xcb
+* Xau from xlibs
+* xcb-proto
+* xcb
+
 Note that xcb-proto exists only to install header files, so typing 'make' or 'make all' will produce the message "Nothing to be done for 'all'". That's normal.
 
 === 2. 编译XCB基础程序
 Compiling XCB-based programs requires linking them with the XCB library. This is easily done thanks to pkgconfig:
 
+[source.bash]
+....
 gcc -Wall prog.c -o prog `pkg-config --cflags --libs xcb`
+....
 or simply :
-
+[source.bash]
+....
 gcc -Wall prog.c -lxcb
+....
 
 == 服务器的连接的打开和关闭
 An X program first needs to open the connection to the X server, using xcb_connect():
@@ -381,5 +389,7 @@ main ()
 
 == 窗口层次
 TODO
+
+Links: link:../index.adoc[index]
 
 Last edited Sat 29 Mar 2014 03:59:04 PM UTC
