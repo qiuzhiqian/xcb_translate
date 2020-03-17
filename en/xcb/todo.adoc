@@ -1,0 +1,34 @@
+= TODO
+
+To Do list:
+
+- Want adoption of libxcb and xcb-proto
+evas and ecore: in progress (caro)
+Cairo: in progress (iano)
+Need to get the test suite to pass
+Need X resource database support for anti-aliasing properties
+Need to match the cairo-xlib public API
+Port cairo-xlib to require Xlib/XCB and delegate to cairo-xcb
+GTK+: need reviewer for existing bits
+Existing bits seem to use old version?
+Organizational interface help from bart, cworth, keithp?
+Qt: Need help (from zrusin?)
+Wine, gstreamer (may fix locking issues), mplayer
+Vincent, Ian, Thomas: utils stuff
+split out libs we care about and release them (notably renderutil, aux)
+renderutil may have more extensions to the glyph abstractions coming
+Ian: start porting xorg/apps to XCB
+Some apps are to be dropped in X.org 7.3: don't bother with those (see some page on xorg.fd.o)
+Jeremy: versioning in the XML protocol descriptions
+Jamey and Bart: clean up XCB transport layer code, so people can grok it
+Someone: Finish MPX/XKB/XI extensions
+Someone: extensions need review and possibly new versions
+Someone: X resource database utility library
+Someone: Unit testing XCB
+Someone: server-side XCB
+Someone: finish xhsb
+Someone: design and implement an X-independent library for pixel format conversion. see : babl LGPL3, so we can't ship it, but we can link to it
+Someone: implement some of the most ugly functions of glx (in util ?)
+Vincent: wants review/help with the XCB tutorial. We should get it into the wiki.
+Links: Meetings/2007-11-04 index
+Last edited Tue 05 Feb 2013 06:37:43 PM UTC

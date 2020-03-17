@@ -1,23 +1,23 @@
 = Tutorial
 
-此篇教程是基于 http://cgit.freedesktop.org/xcb/libxcb/plain/doc/tutorial/index.html[这一篇]教程写的，而这一篇原始教程又是由 Guy Keren根据Xlib的教程编写的。
+Tutorial based off original http://cgit.freedesktop.org/xcb/libxcb/plain/doc/tutorial/index.html[here], which in turn was based off an Xlib tutorial by Guy Keren.
 
-读完了这一篇文章后，请按照顺序阅读下面的这几篇文章：
+After reading this page, read these pages (in this order):
 
-- link:basicwindowsanddrawing.adoc[窗口基础与绘制]
-- link:events.adoc[事件]
-- link:fonts.adoc[文本和字体]
-- link:windowcontextandmanipulation.adoc[窗口上下文和相关操作]
-- link:colorsandpixmaps.adoc[颜色和像素图]
-- link:mousecursors.adoc[鼠标光标]
-- link:xlibtoxcbtranslationguide.adoc[从Xlib迁移到XCB指南]
+- link:tutorial/basicwindowsanddrawing.adoc[Basic Windows and Drawing]
+- link:tutorial/events.adoc[events]
+- link:tutorial/fonts.adoc[Text and Fonts]
+- link:windowcontextandmanipulation.adoc[Window Context and Manipulation]
+- link:colorsandpixmaps.adoc[Colors and PixMaps]
+- link:tutorial/mousecursors.adoc[Mouse Cursors]
+- link:xlibtoxcbtranslationguide.adoc[Xlib to XCB Translation Guide]
 
-== 介绍
+== Introduction
 This tutorial is intended for people who want to program with the XCB library. Keep in mind that XCB, like the Xlib library, isn't what most programmers wanting to write X applications are looking for. Rather, most application developers will want to use a much higher-level GUI toolkit, like Motif, LessTiff, GTK, Qt, EWL, or ETK or perhaps use the higher-level drawing library Cairo. However, the basics of XCB are not all that complicated, and knowing about the layers those other libraries are built on top of is not a bad idea.
 
 After reading this tutorial, one should be able to write very simple graphical programs but not write programs with decent user interfaces (at least easily). For real applications, the previously mentioned libraries are much more appropriate.
 
-== XCB是什么？存在的目的是什么？
+== What is XCB and why does it exist?
 XCB ("X C Binding") is an low-level API for the X window server. XCB is an alternative to Xlib, which has been the standard C binding for the X Window System protocol for many years now. Xlib is an excellent piece of work, but there are applications for which it is not ideal, for example:
 
 Small platforms: Xlib is a large piece of code, and it's difficult to make it smaller
@@ -31,14 +31,14 @@ Toolkit implementation.
 Direct protocol-level programming.
 Lightweight emulation of commonly used portions of the Xlib API.
 
-== X窗口系统的客户端和服务器模型
+== The client and server model of the X window system
 The X Window System was developed with one major goal: flexibility. The idea was that the way things look is one thing, but the way things work is another matter. Thus, the lower levels provide the tools required to draw windows, handle user input, allow drawing graphics using colors (or black and white screens), etc. To this point, a decision was made to separate the system into two parts. A client that decides what to do, and a server that actually draws on the screen and reads user input in order to send it to the client for processing.
 
 This model is the complete opposite of what is used to when dealing with clients and servers. In our case, the user sits near the machine controlled by the server, while the client might be running on a remote machine. The server controls the screens, mouse and keyboard. A client may connect to the server, request that it draws a window (or several windows), and ask the server to send it any input the user sends to these windows. Thus, several clients may connect to a single X server (one might be running mail software, one running a WWW browser, etc). When input is sent by the user to some window, the server sends a message to the client controlling this window for processing. The client decides what to do with this input, and sends the server requests for drawing in the window.
 
 The whole session is carried out using the X message protocol. This protocol was originally carried over the TCP/IP protocol suite, allowing the client to run on any machine connected to the same network that the server is. Later on, the X servers were extended to allow clients running on the local machine with more optimized access to the server (note that an X protocol message may be several hundreds of KB in size), such as using shared memory, or using Unix domain sockets (a method for creating a logical channel on a Unix system between two processes).
 
-== GUI编程: 异步模型
+== GUI programming: the asynchronous model
 Unlike conventional computer programs, that carry some serial nature, a GUI program usually uses an asynchronous programming model, also known as "event-driven programming". This means that that program mostly sits idle, waiting for events sent by the X server, and then acts upon these events. An event may say "The user pressed the 1st button mouse in spot (x,y)", or "The window you control needs to be redrawn". In order for the program to be responsive to the user input, as well as to refresh requests, it needs to handle each event in a rather short period of time (e.g. less that 200 milliseconds, as a rule of thumb).
 
 This also implies that the program may not perform operations that might take a long time while handling an event (such as opening a network connection to some remote server, or connecting to a database server, or even performing a long file copy operation). Instead, it needs to perform all these operations in an asynchronous manner. This may be done by using various asynchronous models to perform the longish operations, or by performing them in a different process or thread.
@@ -55,13 +55,13 @@ If the event was a quit message, exit the loop.
 Close down the connection to the X server.
 Perform cleanup operations.
 
-== XCB基本概念
+== Basic XCB notions
 XCB has been created to eliminate the need for programs to actually implement the X protocol layer. This library gives a program a very low-level access to any X server. Since the protocol is standardized, a client using any implementation of XCB may talk with any X server (the same occurs for Xlib, of course). We now give a brief description of the basic XCB notions. They will be detailed later.
 
-=== 1. X连接
+=== 1. The X Connection
 The major notion of using XCB is the X Connection. This is a structure representing the connection we have open with a given X server. It hides a queue of messages coming from the server, and a queue of pending requests that our client intends to send to the server. In XCB, this structure is named 'xcb_connection_t'. It is analogous to the Xlib Display. When we open a connection to an X server, the library returns a pointer to such a structure. Later, we supply this pointer to any XCB function that should send messages to the X server or receive messages from this server.
 
-=== 2. 请求和应答: xlib终结者
+=== 2. Requests and replies: the Xlib killers
 To ask for information from the X server, we have to make a request and ask for a reply. With Xlib, these two tasks are automatically done: Xlib locks the system, sends a request, waits for a reply from the X server and unlocks. This is annoying, especially if one makes a lot of requests to the X server. Indeed, Xlib has to wait for the end of a reply before asking for the next request (because of the locks that Xlib sends). For example, here is a time-line of N=4 requests/replies with Xlib, with a round-trip latency T_round_trip that is 5 times long as the time required to write or read a request/reply (T_write/T_read):
 ....
 W-----RW-----RW-----RW-----R
@@ -246,16 +246,16 @@ main () {
 }
 ....
 
-=== 3. 图形上下文
+=== 3. The Graphics Context
 When we perform various drawing operations (graphics, text, etc), we may specify various options for controlling how the data will be drawn (what foreground and background colors to use, how line edges will be connected, what font to use when drawing some text, etc). In order to avoid the need to supply hundreds of parameters to each drawing function, a graphical context structure is used. We set the various drawing options in this structure, and then we pass a pointer to this structure to any drawing routines. This is rather handy, as we often need to perform several drawing requests with the same options. Thus, we would initialize a graphical context, set the desired options, and pass this structure to all drawing functions.
 
 Note that graphic contexts have no client-side structure in XCB, they're just XIDs. Xlib has a client-side structure because it caches the GC contents so it can avoid making redundant requests, but of course XCB doesn't do that.
 
-=== 4. 事件
+=== 4. Events
 A structure is used to pass events received from the X server. XCB supports exactly the events specified in the protocol (33 events). This structure contains the type of event received (including a bit for whether it came from the server or another client), as well as the data associated with the event (e.g. position on the screen where the event was generated, mouse button associated with the event, region of the screen associated with a "redraw" event, etc). The way to read the event's data depends on the event type.
 
-== 使用XCB基础程序
-=== 1. 安装XCB
+== Using XCB-based programs
+=== 1. Installing XCB
 TODO: These instructions are out of date. Just reference the main XCB page so we don't have to maintain these instructions in more than one place.
 
 To build XCB from source, you need to have installed at least:
@@ -273,7 +273,7 @@ xcb-proto
 xcb
 Note that xcb-proto exists only to install header files, so typing 'make' or 'make all' will produce the message "Nothing to be done for 'all'". That's normal.
 
-=== 2. 编译XCB基础程序
+=== 2. Compiling XCB-based programs
 Compiling XCB-based programs requires linking them with the XCB library. This is easily done thanks to pkgconfig:
 
 gcc -Wall prog.c -o prog `pkg-config --cflags --libs xcb`
@@ -281,7 +281,7 @@ or simply :
 
 gcc -Wall prog.c -lxcb
 
-== 服务器的连接的打开和关闭
+== Opening and closing the connection to an X server
 An X program first needs to open the connection to the X server, using xcb_connect():
 [source.c]
 ....
@@ -308,7 +308,7 @@ Comparison Xlib/XCB:
 - XOpenDisplay () => xcb_connect ()
 - XCloseDisplay () => xcb_disconnect ()
 
-== 连接的基本信息检查
+== Checking basic information about a connection
 Once we have opened a connection to an X server, we should check some basic information about it: what screens it has, what is the size (width and height) of the screen, how many colors it supports (black and white ? grey scale ?, 256 colors ? more ?), and so on. We get such information from the xcbscreent structure:
 [source.c]
 ....
@@ -379,7 +379,7 @@ main ()
 }
 ....
 
-== 窗口层次
+== The window hierarchy
 TODO
 
 Last edited Sat 29 Mar 2014 03:59:04 PM UTC

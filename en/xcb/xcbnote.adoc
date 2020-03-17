@@ -1,0 +1,40 @@
+Cookies and Latency Hiding
+The general ruleset I always intended for using a cookie to hide latency is this:
+
+Always send a request as soon as you legally can.
+Never force the returned cookie until you actually need to examine the result.
+In the presence of multiple requests, it gets a bit more complicated.
+
+Always send each request as soon as you legally can.
+1a. If you can send multiple requests at the same time, send the one whose value you expect to need first, first.
+1b. If rule 1a doesn't help, a secondary tiebreaker is that it's better to send requests the server can process quickly first, followed by those the server might run slowly.
+Never force a returned cookie until you actually need to examine the result.
+The idea of rule 1b is that if you're lucky, you can be working on the quick results while the server is processing the slow request. In general, don't worry about ordering of simultaneous requests too much. It's hard to construct a realistic example where these kinds of corner cases matter.
+
+Note that rule 2 is stronger than necessary in the presence of multiple requests. If you need to force a cookie returned for a request r, it is harmless to also force cookies returned from requests earlier than r: these values will be available anyway, since the server always returns results in order. However, it is also harmless to wait to force a cookie until you need the value, and it makes it clearer that you've done the right thing.
+
+If you follow these rules, you will be getting about all the latency hiding you can expect from what is a fundamentally serialized protocol without using threading or some equivalent mechanism.
+
+Hope this helps. Comment welcome.
+
+Double Buffering
+Double buffering on X is kind of a mess. Here's documentation on the Multi-Buffering and XDBE extensions in case someone wants to write a protocol description for XCB. Note: Multibuffer is deprecated in favour of DBE. It also seems that DBE is deprecated. See this thread.
+
+A conversation with keithp indicates that his current thinking is that the right way to do double buffering is via an explicit copy from a separate pixmap. This is portable to absolutely everywhere, and requires no magic. Probably there will soon be a convention for the compositing manager to handle the double buffering on systems where one is running, since it needs to buffer anyhow. But this would be in the future.
+
+Checked vs. Unchecked
+The plan 7 error handling follows the these rules.
+
+If a request has no reply (xcb_void_cookie_t) the default is to call unchecked. To check the result use xxx_checked.
+If a request has a reply cookie, the default is to call checked. If you are not interested in checking, use xxx_unchecked.
+There are some details in the API stub document, but hopefully this clarifies the intent.
+
+About XCB Names
+The guiding principle of XCB naming is that one should be able to infer the name of the routine they want to call without reference to any documentation other than the protocol spec. This occasionally generates some long and awful-looking names, but we've found that it also helps us to read and write code without so much reference to magic documentation, and with a clear understanding of what's going on "under the hood". This is also why we choose to use the typenames for integral types; we want the correspondence between C values and protocol values to be clear.
+
+The basic C naming conventions are that macros are in all caps, other names are in all lower case, and underbar is used as a word separator. All publicly-visible symbols are prefixed with "xcb"; extension symbols are then prefixed with the extension prefix (usually its name). Following this prefix is the name of the symbol as given in the relevant protocol document, transliterated as exactly as possible. Operations on a given protocol request, such as reply retrieval or iterator construction, are given by standard suffixes. Typenames end with a suffix t.
+
+I think looking through a few header files should clarify this, and working through a few examples should explain why we like it. (It also makes it easy for us to generate the C from the XML protocol description, but that's just an added bonus, not the primary motivation.)
+
+Links: index
+Last edited Tue 08 Dec 2009 08:46:22 AM UTC

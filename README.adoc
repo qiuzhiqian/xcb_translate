@@ -9,6 +9,6 @@
 所有文档均是用Asciidoc排版，包括英文原文也由本人手动转换成了Asciidoc格式。Asciidoc语法请参考 http://asciidoc.org/[Asciidoc官网]
 
 == 开始阅读
--> link:en/tutorial.adoc[英文]
+-> link:en/index.adoc[英文]
 
--> link:zh/tutorial.adoc[中文]
+-> link:zh/index.adoc[中文]

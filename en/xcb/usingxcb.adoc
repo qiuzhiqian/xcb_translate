@@ -1,0 +1,24 @@
+= Using xcb
+
+(See also the XCB To Do list and the XCB project page.)
+
+Now that we have this XCB library and it pretty much just works, what can we do with it? I'd like to make it easier to build new window managers. (For an example of a window manager, see fellow freedesktop.org project Waimea.) I've picked this goal partly because I want to see more experimentation in user-interface design through window managers, and partly because most of the needed pieces are more broadly applicable.
+
+To build a window manager, you need to be able to interact with all of the other X applications on the same display without stomping on shared resources, and while allowing the applications to inform you of how they wish to be treated (e.g., don't resize me, and here's my icon). We have standards specifying how to do that, with the Extended Window Manager Hints (EWMH) being the current state-of-the-art. It would be nice to encapsulate those standards into APIs for C apps. That's not just useful for window managers, however, as all the other applications have to implement these standards too.
+
+EWMH and its elder sibling, ICCCM, depend on X events for certain communications between clients. Xlib's interface for handling events is low-level enough to be awkward; XCB's interface is a little more low-level than that. A layer on top of XCB that provides a convenient interface would be valuable, and since it's very hard to write a useful X app that doesn't recieve events, such a layer would be very broadly applicable.
+
+EWMH and ICCCM also depend on properties and selections for conveying information between clients. These further depend on events. Layers on top of the events interface to make working with properties and selections convenient would also be valuable.
+
+Additionally, properties and selections use atoms, so features like an atom cache and list of built-in atoms might be convenient. However, the average application knows exactly what atoms it will need in its lifetime, and can request all of them early and store them in per-display global variables. So this component probably isn't very useful for the majority of applications; maybe applications like xprop are the only ones that truly need it. Having a convenient cache does make rapid initial development of an application or library easier, though.
+
+With all of those pieces available, a library that hides the hardest details of writing a window manager should be achievable. I don't know yet what that library would look like.
+
+Status: I've written a pretty minimal window manager using prototypes of each of the above components. All these pieces are in the xcb-util module in the xcb CVS repository. The window manager is monochrome, it uses core fonts, and all you can do is move windows (no resize, close, etc.)... but despite all that, it is a reparenting window manager and it works, as far as it goes.
+
+I have API designs and architectures in my head for each of these components, though I don't have any evidence yet that they're *good* designs. Now that these libraries are available to the public, we can gain experience with the current designs and try out alternate designs, producing other interesting libraries and applications along the way.
+
+-- Jamey Sharp - 29 Jun 2004
+
+Links: History XCBToDo XcbApi
+Last edited Wed 11 Sep 2013 08:18:54 PM UTC
