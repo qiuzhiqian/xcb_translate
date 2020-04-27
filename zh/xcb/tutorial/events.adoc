@@ -88,24 +88,27 @@ xcb_change_window_attributes (connection, window, XCB_CW_EVENT_MASK, values);
 NOTE: 程序员经常会出现这样的疏忽，添加了代码来处理新的事件类型，但在创建窗口时忘记为这些事件添加掩码。
 这导致程序员进行了数小时的调试，想知道“为什么我的程序没有注意到我释放了按钮？”，最终却发现他们注册了按钮按下事件，但没有注册按钮释放事件。
 
-=== Receiving events: writing the events loop
-After we have registered for the event types we are interested in, we need to enter a loop of receiving events and handling them. There are two ways to receive events: a blocking way and a non-blocking way:
+=== 接收事件：编写事件循环
+在注册了我们感兴趣的事件类型之后，我们需要进入一个循环，在这个循环中接收事件并对其进行处理的。
+我们有两种接收事件的方式：一种阻塞和一种非阻塞：
 
-The blocking way:
+阻塞方式:
 [source,c]
 ....
 xcb_generic_event_t *xcb_wait_for_event (xcb_connection_t *c);
 ....
-...blocks until an event is queued in the X server, then dequeues it from the queue, then returns it as a newly allocated structure (which is your responsibility to free). May return NULL in event of an error.
+...直到事件在X服务器中排队，然后将其从队列中出队，然后将其作为新分配的结构返回（这个需要你责任释放）。
+如果在事件中发生错误，则返回NULL。
 
-The non-blocking way:
+非阻塞方式:
 [source,c]
 ....
 xcb_generic_event_t *xcb_poll_for_event (xcb_connection_t *c);
 ....
-...immediately dequeues and returns an event, but returns NULL if no event is available at the time of the call. If an error occurs, the parameter error will be filled with the error status.
+...立即从队列中退出，并返回一个事件，但是如果在这个函数被调用的时刻没有事件可以获取到，将会返回NULL。
+如果发生了一个错误，error参数将会被设置成对应错误状态。
 
-Here's how you might use xcb_wait_for_event:
+下面演示如何使用 `xcb_wait_for_event` :
 [source,c]
 ....
 xcb_generic_event_t *event;
@@ -130,7 +133,8 @@ while ( (event = xcb_wait_for_event (connection)) ) {
     free (event);
 }
 ....
-Non-blocking handling in Xlib looks like this:
+
+在Xlib中非阻塞的处理看起来是这样的：
 [source,c]
 ....
 while (XPending (display)) {
@@ -139,7 +143,8 @@ while (XPending (display)) {
     /* ...handle the event */
 }
 ....
-The equivalent in XCB looks like:
+
+在XCB中同等的逻辑看起来是这样的:
 [source,c]
 ....
 xcb_generic_event_t *event;
@@ -148,9 +153,12 @@ while ( (event = xcb_poll_for_event (connection, 0)) ) {
     /* ...handle the event */
 }
 ....
-Basically, the events are managed in the same way as with xcb_wait_for_event. Obviously, your endless event handling loop will need to give the user some way of terminating the program. This is usually done by handling a special "quit" event, as we will soon see.
 
-Comparison Xlib/XCB:
+基本上，事件的管理方式与xcb_wait_for_event相同。
+显然，无休止的事件处理循环将需要为用户提供某种终止程序的方式。
+我们将很快看到，这通常是通过处理特殊的“退出”事件来完成的。
+
+Xlib/XCB比较:
 
 - XNextEvent () => xcb_wait_for_event ()
 - XPending () , XCheckMaskEvent () => xcb_poll_for_event ()
