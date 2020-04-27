@@ -163,17 +163,19 @@ Xlib/XCB比较:
 - XNextEvent () => xcb_wait_for_event ()
 - XPending () , XCheckMaskEvent () => xcb_poll_for_event ()
 
-=== Expose events
-The Expose event is one of the most basic (and most used) events an application may receive. It will be sent to us in one of several cases:
+=== 暴露事件
+暴露事件是应用程序可能会收到的最基本（也是使用最多的）事件之一。 在以下几种情况之一中，它将被发送给我们：
 
-- A window that covered part of our window has moved away, exposing part (or all) of our window.
-- Our window was raised above other windows.
-- Our window was mapped for the first time.
-- Our window was de-iconified (to 'iconify' a window is to minimize it or send it to the tray such that it is not shown at all)
+- 覆盖我们窗口一部分的另一个窗口已经移开，暴露了我们窗口的一部分（或全部）。
+- 我们的窗口上升到其他窗口的上面。
+- 我们的窗口第一次加载。
+- 我们的窗口进行了取消图标化（“图标化”窗口是将其最小化或将其发送到托盘，使其完全不显示）
 
-Note the implicit assumption here: the content of our window is lost when it is being obscured (covered) by other windows. The reason the X server does not save this content is to save memory. After all, the number of windows on a display at a given time may be very large, so storing the contents of all of them might require a lot of memory. (Actually, there is a way to tell the X server to store the contents of a window in special cases, as we will see later.)
+请注意此处的隐含假设：我们的窗口的内容在被其他窗口遮盖（覆盖）时会丢失。X服务器不保存该内容的原因是为了节省内存。
+毕竟，在某些时间里，显示器上的窗口数量可能非常大，因此存储所有窗口的内容可能需要大量内存。
+ (实际上，有一种方法可以告诉X服务器在特殊情况下存储窗口的内容，我们将在后面看到)
 
-Expose event definition:
+暴露事件的定义：
 [source,c]
 ....
 typedef struct {
