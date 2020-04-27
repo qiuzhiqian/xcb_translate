@@ -1,4 +1,6 @@
 = Tutorial
+:toc:
+:numbered:
 
 Tutorial based off original http://cgit.freedesktop.org/xcb/libxcb/plain/doc/tutorial/index.html[here], which in turn was based off an Xlib tutorial by Guy Keren.
 
@@ -81,7 +83,7 @@ The total time is N * T_write + max (0, T_round_trip - (N-1) * T_write) + N * T_
 Here is a program that computes the time to create 500 atoms with Xlib and XCB. It shows the Xlib way, the bad XCB way (which is similar to Xlib) and the good XCB way. On my computer, XCB is 25 times faster than Xlib. On another random machine XCB has been observed to be up to 117 times faster than Xlib, on rare occasions.
 
 To further compare Xlib to XCB, there's a XInternAtoms routine. It's the Xlib method to request all the atoms in an array at one time to help hide the latency. Mostly the good Xlib time takes twice the time as the good XCB time. It also highlights the complexity of using XCB, 3 simple statements for Xlib vs 9 statements including two loops for XCB. If this simple test was expanded beyond requesting Atoms, XCB would allow submitting all the various requests at one time, Xlib wouldn't.
-[source.c]
+[source,c]
 ....
 /* It's a good idea to paste this and other long code examples
    into a text editor for easier reading */
@@ -278,29 +280,29 @@ Note that xcb-proto exists only to install header files, so typing 'make' or 'ma
 
 === 2. Compiling XCB-based programs
 Compiling XCB-based programs requires linking them with the XCB library. This is easily done thanks to pkgconfig:
-[source.bash]
+[source,bash]
 ....
 gcc -Wall prog.c -o prog `pkg-config --cflags --libs xcb`
 ....
 or simply :
-[source.bash]
+[source,bash]
 ....
 gcc -Wall prog.c -lxcb
 ....
 == Opening and closing the connection to an X server
 An X program first needs to open the connection to the X server, using xcb_connect():
-[source.c]
+[source,c]
 ....
 xcb_connection_t *xcb_connect (const char *displayname,  // if NULL, uses the DISPLAY environment variable
                                 int        *screenp );    // returns the screen number of the connection; can provide NULL if you don't care
 ....
 To close a connection, it suffices to use:
-[source.c]
+[source,c]
 ....
 void xcb_disconnect (xcb_connection_t *c);
 ....
 So for example:
-[source.c]
+[source,c]
 ....
 #include <xcb/xcb.h>
 
@@ -316,7 +318,7 @@ Comparison Xlib/XCB:
 
 == Checking basic information about a connection
 Once we have opened a connection to an X server, we should check some basic information about it: what screens it has, what is the size (width and height) of the screen, how many colors it supports (black and white ? grey scale ?, 256 colors ? more ?), and so on. We get such information from the xcbscreent structure:
-[source.c]
+[source,c]
 ....
 typedef struct {
     xcb_window_t   root;
@@ -338,12 +340,12 @@ typedef struct {
 } xcb_screen_t;
 ....
 We could retrieve the first screen of the connection by using the following function:
-[source.c]
+[source,c]
 ....
 xcb_screen_iterator_t xcb_setup_roots_iterator (xcb_setup_t *R);
 ....
 Here is a small program that shows how to use this function:
-[source.c]
+[source,c]
 ....
 #include <stdio.h>
 #include <xcb/xcb.h>

@@ -1,4 +1,6 @@
 = Xcb
+:toc:
+:numbered:
 
 == Introduction
 The X protocol C-language Binding (XCB) is a replacement for Xlib link:xcb/features.adoc[featuring] a small footprint, latency hiding, direct access to the protocol, improved threading support, and extensibility.

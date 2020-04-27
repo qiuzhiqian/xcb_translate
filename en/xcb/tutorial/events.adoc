@@ -7,7 +7,7 @@ In an X program, everything is driven by events. Event painting on the screen is
 During the creation of a window, you should give it what kind of events it wishes to receive. Thus, you may register for various mouse (also called pointer) events, keyboard events, expose events, and so on. This is done for optimizing the server-to-client connection (i.e. why send a program (that might even be running at the other side of the globe) an event it is not interested in ?)
 
 In XCB, you use the "valuemask" and "valuelist" data in the xcb_create_window() function to register for events. Here is how we register for Expose event when creating a window:
-[source.c]
+[source,c]
 ....
 mask = XCB_CW_EVENT_MASK;
 valwin[0] = XCB_EVENT_MASK_EXPOSURE;
@@ -18,7 +18,7 @@ xcb_create_window (connection, depth, window, root->root,
                     mask, valwin );
 ....
 XCB_EVENT_MASK_EXPOSURE is a constant defined in the xcb_event_mask_t enumeration in the "xproto.h" header file. If we wanted to register for several event types, we can logically "or" them, as follows:
-[source.c]
+[source,c]
 ....
 mask = XCB_CW_EVENT_MASK;
 valwin[0] = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS;
@@ -31,7 +31,7 @@ xcb_create_window (connection, depth, window, root->root,
 This registers for Expose events as well as for mouse button presses inside the created window. You should note that a mask may represent several event sub-types.
 
 The values that a mask could take are given by the xcb_cw_t enumeration:
-[source.c]
+[source,c]
 ....
 typedef enum {
     XCB_CW_BACK_PIXMAP       = 1L<<0,
@@ -52,7 +52,7 @@ typedef enum {
 } xcb_cw_t;
 ....
 Note: we must be careful when setting the values of the valwin parameter, as they have to follow the order the xcb_cw_t enumeration. Here is an example:
-[source.c]
+[source,c]
 ....
 mask = XCB_CW_EVENT_MASK | XCB_CW_BACK_PIXMAP;
 valwin[0] = XCB_NONE;                                               /* for XCB_CW_BACK_PIXMAP (whose value is 1)     */
@@ -60,7 +60,7 @@ valwin[1] = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS;  /* for XCB_C
                                                                     /* is greater than the one of XCB_CW_BACK_PIXMAP */
 ....
 If the window has already been created, we can use the xcb_change_window_attributes() function to set the events that the window will receive. The subsection Configuring a window shows its prototype. As an example, here is a piece of code that configures the window to receive the Expose and ButtonPress events:
-[source.c]
+[source,c]
 ....
 const static uint32_t values[] = { XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS };
 
@@ -72,21 +72,21 @@ Note: A common programmer oversight is adding code to handle new event types whi
 After we have registered for the event types we are interested in, we need to enter a loop of receiving events and handling them. There are two ways to receive events: a blocking way and a non-blocking way:
 
 The blocking way:
-[source.c]
+[source,c]
 ....
 xcb_generic_event_t *xcb_wait_for_event (xcb_connection_t *c);
 ....
 ...blocks until an event is queued in the X server, then dequeues it from the queue, then returns it as a newly allocated structure (which is your responsibility to free). May return NULL in event of an error.
 
 The non-blocking way:
-[source.c]
+[source,c]
 ....
 xcb_generic_event_t *xcb_poll_for_event (xcb_connection_t *c);
 ....
 ...immediately dequeues and returns an event, but returns NULL if no event is available at the time of the call. If an error occurs, the parameter error will be filled with the error status.
 
 Here's how you might use xcb_wait_for_event:
-[source.c]
+[source,c]
 ....
 xcb_generic_event_t *event;
 
@@ -111,7 +111,7 @@ while ( (event = xcb_wait_for_event (connection)) ) {
 }
 ....
 Non-blocking handling in Xlib looks like this:
-[source.c]
+[source,c]
 ....
 while (XPending (display)) {
     XEvent event;
@@ -120,7 +120,7 @@ while (XPending (display)) {
 }
 ....
 The equivalent in XCB looks like:
-[source.c]
+[source,c]
 ....
 xcb_generic_event_t *event;
 
@@ -133,12 +133,12 @@ Basically, the events are managed in the same way as with xcb_wait_for_event. Ob
 Comparison Xlib/XCB:
 
 - XNextEvent () =>
-[source.c]
+[source,c]
 ....
 xcb_wait_for_event ()
 ....
 - XPending () , XCheckMaskEvent () =>
-[source.c]
+[source,c]
 ....
 xcb_poll_for_event ()
 ....
@@ -154,7 +154,7 @@ The Expose event is one of the most basic (and most used) events an application 
 Note the implicit assumption here: the content of our window is lost when it is being obscured (covered) by other windows. The reason the X server does not save this content is to save memory. After all, the number of windows on a display at a given time may be very large, so storing the contents of all of them might require a lot of memory. (Actually, there is a way to tell the X server to store the contents of a window in special cases, as we will see later.)
 
 Expose event definition:
-[source.c]
+[source,c]
 ....
 typedef struct {
     uint8_t      response_type; /* The type of the event, here it is XCB_EXPOSE */
@@ -175,13 +175,13 @@ User input traditionally comes from two sources: the mouse and the keyboard. Var
 
 ==== 4.1 Mouse button press and release events
 The first event type we will deal with is a mouse button-press (or button-release) event in our window. In order to register to such an event type, we should add one (or more) of the following masks when we create our window:
-[source.c]
+[source,c]
 ....
 XCB_EVENT_MASK_BUTTON_PRESS     //notify us of any button that was pressed in one of our windows.
 XCB_EVENT_MASK_BUTTON_RELEASE   //notify us of any button that was released in one of our windows.
 ....
 Both kinds of events are represented with the same structure, but for the sake of self-documentation, it goes by two names:
-[source.c]
+[source,c]
 ....
 typedef struct {
     uint8_t         response_type; /* The type of the event, here it is xcb_button_press_event_t or xcb_button_release_event_t */
@@ -204,7 +204,7 @@ typedef xcb_button_press_event_t xcb_button_release_event_t;
 The time field may be used to calculate "double-click" situations by an application (e.g. if the mouse button was clicked two times in a duration shorter than a given amount of time, assume this was a double click).
 
 The state field is a mask of the buttons held down during the event. It is a bitwise OR of any of the following (from the xcbbuttonmaskt and xcbmodmaskt enumerations):
-[source.c]
+[source,c]
 ....
 XCB_BUTTON_MASK_1
 XCB_BUTTON_MASK_2
@@ -235,7 +235,7 @@ XCB_EVENT_MASK_BUTTON_3_MOTION
 XCB_EVENT_MASK_BUTTON_4_MOTION
 XCB_EVENT_MASK_BUTTON_5_MOTION
 These all generate events of this type:
-[source.c]
+[source,c]
 ....
 typedef struct {
     uint8_t         response_type; /* The type of the event */
@@ -256,14 +256,14 @@ typedef struct {
 
 ==== 4.3. Mouse pointer enter and leave events
 Another type of event that applications might be interested in, is a mouse pointer entering a window the program controls, or leaving such a window. Some programs use these events to show the user that the application is now in focus. In order to register for such an event type, we should add one (or more) of the following masks when we create our window:
-[source.c]
+[source,c]
 ....
 XCB_EVENT_MASK_ENTER_WINDOW     // notify us when the mouse pointer enters any of our controlled windows.
 XCB_EVENT_MASK_LEAVE_WINDOW     // notify us when the mouse pointer leaves any of our controlled windows. 
 ....
 
 The structure to be checked for in our events loop is the same for these two events, and is the following:
-[source.c]
+[source,c]
 ....
 typedef struct {
     uint8_t         response_type; /* The type of the event */
@@ -316,7 +316,7 @@ TODO: Talk about getting the ASCII code from the key code.
 
 === 5. X events: a complete example
 As an example for handling events, we show a program that creates a window, enters an events loop and checks for all the events described above, and writes on the terminal the relevant characteristics of the event. With this code, it should be easy to add drawing operations, like those which have been described above.
-[source.c]
+[source,c]
 ....
 #include <stdlib.h>
 #include <stdio.h>

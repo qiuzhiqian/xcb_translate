@@ -1,4 +1,6 @@
 = Tutorial
+:toc:
+:numbered:
 
 此篇教程是基于 http://cgit.freedesktop.org/xcb/libxcb/plain/doc/tutorial/index.html[这一篇]教程写的，而这一篇原始教程又是由 Guy Keren根据Xlib的教程编写的。
 
@@ -13,75 +15,114 @@
 - link:xlibtoxcbtranslationguide.adoc[从Xlib迁移到XCB指南]
 
 == 介绍
-本教程适用于希望使用XCB库进行编程的人。请记住，就像Xlib库一样，XCB并不是大多数想要编写X应用程序的程序员所寻找的东西。而是，大多数应用程序开发人员应该希望使用更高级的GUI工具包，例如Motif，LessTiff，GTK，Qt，EWL或ETK，或者可能使用更高级的图形库Cairo。但是，XCB的基础并不是那么复杂，了解其他库在其之上构建的层并不是一个坏的打算。
+本教程适用于希望使用XCB库进行编程的人。请记住，就像Xlib库一样，
+XCB并不是大多数想要编写X应用程序的程序员所寻找的东西。
+而是，大多数应用程序开发人员应该希望使用更高级的GUI工具包，
+例如Motif，LessTiff，GTK，Qt，EWL或ETK，或者可能使用更高级的图形库Cairo。
+但是，XCB的基础并不是那么复杂，了解其他库在其之上构建的层并不是一个坏的打算。
 
 阅读完本教程后，应该能够编写非常简单的图形程序，但不能（至少想很容易）编写具有良好用户界面的程序。 对于实际应用，前面提到的库更合适。
 
 == XCB是什么？存在的目的是什么？
-XCB ("X C Binding") is an low-level API for the X window server. XCB is an alternative to Xlib, which has been the standard C binding for the X Window System protocol for many years now. Xlib is an excellent piece of work, but there are applications for which it is not ideal, for example:
+`XCB` （"X C绑定"）是X窗口服务器的低级API。 
+XCB是Xlib的替代产品，Xlib多年来一直是X窗口系统协议的标准C绑定。
+Xlib能够出色地完成工作，但是对于某些应用程序来说，它并不理想。例如：
 
-- **Small platforms**: Xlib is a large piece of code, and it's difficult to make it smaller
-- **Latency hiding**: Xlib requests requiring a reply are effectively synchronous: they block until the reply appears, whether the result is needed immediately or not.
-- **Direct access to the protocol**: Xlib does quite a bit of caching, layering, and similar optimizations. While this is normally a feature, it makes it difficult to simply emit specified X protocol requests and process specific responses.
-- **Threaded applications**: While Xlib does attempt to support multithreading, the API makes this difficult and error-prone.
-- **New extensions**: The Xlib infrastructure provides limited support for the new creation of X extension client side code.
+- **小型平台**: Xlib 代码过于庞大，很难将其缩小。
+- **延迟削减**: 要求响应的Xlib请求实际上是同步的：它们会一直阻塞直到响应出现为止，而不论是否立即需要响应。
+- **直接访问协议**: Xlib进行了大量的缓存，分层和类似的优化。 尽管这通常是一项功能，但使其难以简单地发出指定的X协议请求并处理特定的响应。
+- **线程应用**: 尽管Xlib确实尝试支持多线程，但API却使这一工作变得困难且容易出错。
+- **新拓展**: Xlib基础结构为新创建的X扩展客户端代码提供了的支持很有限。
 
-XCB has been designed to solve the above problems and thus provide a base for:
+XCB旨在解决上述问题，从而为以下提供了基础：
 
-- Toolkit implementation.
-- Direct protocol-level programming.
-- Lightweight emulation of commonly used portions of the Xlib API.
+- 工具包设施。
+- 直接协议级编程。
+- Xlib API常用部分的轻量级模拟。
 
 == X窗口系统的客户端和服务器模型
-The X Window System was developed with one major goal: flexibility. The idea was that the way things look is one thing, but the way things work is another matter. Thus, the lower levels provide the tools required to draw windows, handle user input, allow drawing graphics using colors (or black and white screens), etc. To this point, a decision was made to separate the system into two parts. A client that decides what to do, and a server that actually draws on the screen and reads user input in order to send it to the client for processing.
+X Window系统的开发主要目标是：灵活性。 思想是，事物的外观是一回事，而事物的工作方式则是另一回事。
+因此，提供了较低级别的绘制窗口，处理用户输入，允许使用彩色（或黑白屏幕）绘制图形等所需的工具。
+至此，决定将系统分为两部分。 客户端决定要做什么，服务器实际在屏幕上绘制并读取用户输入，
+以便将其发送给客户端进行处理。
 
-This model is the complete opposite of what is used to when dealing with clients and servers. In our case, the user sits near the machine controlled by the server, while the client might be running on a remote machine. The server controls the screens, mouse and keyboard. A client may connect to the server, request that it draws a window (or several windows), and ask the server to send it any input the user sends to these windows. Thus, several clients may connect to a single X server (one might be running mail software, one running a WWW browser, etc). When input is sent by the user to some window, the server sends a message to the client controlling this window for processing. The client decides what to do with this input, and sends the server requests for drawing in the window.
+该模型与处理客户端和服务器时使用的模型完全相反。 
+在我们的情况下，用户在服务器控制的计算机附近，而客户端可能正在远程计算机上运行。 
+服务器控制屏幕，鼠标和键盘。 客户端可以连接到服务器，请求它绘制一个窗口（或多个窗口），
+然后请求服务器，并将用户发送到这些窗口的任何输入发送给服务器。 
+因此，几个客户端可以连接到单个X服务器（一个可能正在运行邮件软件，一个可能正在运行WWW浏览器，等等）。 
+当用户将输入发送到某个窗口时，服务器会将消息发送到控制该窗口的客户端以进行处理。 
+客户端决定如何处理此输入，然后在窗口中向服务器发送绘图请求。
 
-The whole session is carried out using the X message protocol. This protocol was originally carried over the TCP/IP protocol suite, allowing the client to run on any machine connected to the same network that the server is. Later on, the X servers were extended to allow clients running on the local machine with more optimized access to the server (note that an X protocol message may be several hundreds of KB in size), such as using shared memory, or using Unix domain sockets (a method for creating a logical channel on a Unix system between two processes).
+整个会话使用X消息协议进行。 该协议最初是通过TCP/IP协议套件承载的，
+该协议允许客户端运行在任何能连接到服务器所在网络的计算机上。
+后来，X服务器进行了扩展，以允许运行在本地计算机上的客户端更高效的访问服务器（请注意，X协议消息的大小可能为数百KB），例如使用共享内存或使用Unix域套接字（一种在Unix系统两个进程之间创建逻辑通道的方法）。
 
 == GUI编程: 异步模型
-Unlike conventional computer programs, that carry some serial nature, a GUI program usually uses an asynchronous programming model, also known as "event-driven programming". This means that that program mostly sits idle, waiting for events sent by the X server, and then acts upon these events. An event may say "The user pressed the 1st button mouse in spot (x,y)", or "The window you control needs to be redrawn". In order for the program to be responsive to the user input, as well as to refresh requests, it needs to handle each event in a rather short period of time (e.g. less that 200 milliseconds, as a rule of thumb).
+与具有某些串行特性的常规计算机程序不同，GUI程序通常使用异步编程模型，也称为 `事件驱动的编程` 。
+这意味着该程序通常处于空闲状态，等待X服务器发送的事件，然后对这些事件进行操作。
+一个事件可能会说 "用户在位置（x，y）处按下了第一个按钮鼠标" ，或者 "您需要重绘您控制的窗口" 。
+为了使程序响应用户输入以及刷新请求，它需要在相当短的时间段内（例如，根据经验，少于200毫秒）处理每个事件。
 
-This also implies that the program may not perform operations that might take a long time while handling an event (such as opening a network connection to some remote server, or connecting to a database server, or even performing a long file copy operation). Instead, it needs to perform all these operations in an asynchronous manner. This may be done by using various asynchronous models to perform the longish operations, or by performing them in a different process or thread.
+这也意味着程序在处理事件时可能不会执行可能花费很长时间的操作（例如，打开到某个远程服务器的网络连接，或连接到数据库服务器，甚至执行长文件复制操作）。
+相反，它需要以异步方式执行所有这些操作。 这可以通过使用各种异步模型执行冗长的操作，或者通过在不同的进程或线程中执行它们来完成。
 
-So the way a GUI program looks is something like that:
+因此，一个GUI程序可能看起来是这样的：
 
-. Perform initialization routines.
-. Connect to the X server.
-. Perform X-related initialization.
-. While not finished:
-.. Receive the next event from the X server.
-.. Handle the event, possibly sending various drawing requests to the X server.
-.. If the event was a quit message, exit the loop.
-. Close down the connection to the X server.
-. Perform cleanup operations.
+. 执行初始化例程。
+. 连接到X服务器。
+. 执行X相关的初始化。
+. While死循环:
+.. 接收来自X服务器的下一个事件。
+.. 处理事件，可能还会发送各种绘制请求到服务器上。
+.. 如果这个时间是一个退出信息，则退出循环。
+. 关闭与X服务器的连接。
+. 执行清理操作。
 
 == XCB基本概念
-XCB has been created to eliminate the need for programs to actually implement the X protocol layer. This library gives a program a very low-level access to any X server. Since the protocol is standardized, a client using any implementation of XCB may talk with any X server (the same occurs for Xlib, of course). We now give a brief description of the basic XCB notions. They will be detailed later.
+创建XCB的目的是消除实际实现X协议层所需的程序。 该库为程序提供了对任何X服务器进行非常低级的访问。
+由于该协议是标准化的，因此使用XCB的任何实现的客户端都可以与任何X服务器通信（当然，这对于Xlib也会是适用的）。 
+现在，我们对基本的XCB概念进行简要说明。稍后还将详细介绍。
 
-=== 1. X连接
-The major notion of using XCB is the X Connection. This is a structure representing the connection we have open with a given X server. It hides a queue of messages coming from the server, and a queue of pending requests that our client intends to send to the server. In XCB, this structure is named 'xcb_connection_t'. It is analogous to the Xlib Display. When we open a connection to an X server, the library returns a pointer to such a structure. Later, we supply this pointer to any XCB function that should send messages to the X server or receive messages from this server.
+=== X连接
+使用XCB的主要概念是X连接。这是代表我们与给定的X服务器打开的连接的结构。
+它隐藏了来自服务器的消息队列，以及客户端打算发送给服务器的待处理请求队列。
+在XCB中，此结构名为 `xcb_connection_t` 。 它类似于Xlib Display。
+当我们打开与X服务器的连接时，库将返回一个指向此类结构的指针。
+之后，任何需要将消息发送到X服务器或从该服务器接收消息的XCB函数，都需要传入这个指针。
 
-=== 2. 请求和应答: xlib终结者
-To ask for information from the X server, we have to make a request and ask for a reply. With Xlib, these two tasks are automatically done: Xlib locks the system, sends a request, waits for a reply from the X server and unlocks. This is annoying, especially if one makes a lot of requests to the X server. Indeed, Xlib has to wait for the end of a reply before asking for the next request (because of the locks that Xlib sends). For example, here is a time-line of N=4 requests/replies with Xlib, with a round-trip latency T_round_trip that is 5 times long as the time required to write or read a request/reply (T_write/T_read):
+=== 请求和应答: xlib终结者
+要从服务器请求信息，我们必须提出请求并要求答复。使用Xlib时，这两个步骤会自动完成这些流程：
+Xlib锁定系统，发送请求，等待X服务器的回复并解锁。这很繁琐，尤其是当一个人向X服务器发出大量请求时。实际上，Xlib必须等待答复结束，然后才能发送下一个请求(由于Xlib发送锁)。例如，下面是使用Xlib时，N=4的请求/回复的时间线，往返延时 `T_round_trip` 是写入或读取一个请求/回复(T_write/T_read)所需要的时间的5倍:
 ....
 W-----RW-----RW-----RW-----R
 
-* W: Writing request
-* -: Stalled, waiting for data
-* R: Reading reply 
+* W: 写入请求
+* -: 停留，等待数据
+* R: 读取响应
 ....
-        The total time is N * (T_write + T_round_trip + T_read).
-With XCB, we can suppress most of the round-trips as the requests and the replies are not locked. We usually send a request, then XCB returns to us a cookie, which is an identifier. Then, later, we ask for a reply using this cookie and XCB returns a pointer to that reply. Hence, with XCB, we can send a lot of requests, and later in the program, ask for all the replies when we need them. Here is the time-line for 4 requests/replies when we use this property of XCB:
+总共时间 N * (T_write + T_round_trip + T_read).
+
+使用XCB，由于请求和答复未锁定，因此可以缓存大多数往返流程。
+我们通常发送一个请求，然后XCB向我们返回一个cookie，它是一个标识符。 稍后，我们使用此Cookie来要求答复，XCB返回指向该答复的指针。 因此，使用XCB，我们可以发送很多请求，然后在程序的后面，在需要它们时请求所有答复。 当我们以下是使用XCB的此特性时，4个请求/回复的时间轴：
 ....
 WWWW--RRRR
 ....
-The total time is N * T_write + max (0, T_round_trip - (N-1) * T_write) + N * T_read. Which can be considerably faster than all those Xlib round-trips.
+总共时间 N * T_write + max (0, T_round_trip - (N-1) * T_write) + N * T_read. 
 
-Here is a program that computes the time to create 500 atoms with Xlib and XCB. It shows the Xlib way, the bad XCB way (which is similar to Xlib) and the good XCB way. On my computer, XCB is 25 times faster than Xlib. On another random machine XCB has been observed to be up to 117 times faster than Xlib, on rare occasions.
+这比使用Xlib时所有的往返都要快的多。
 
-To further compare Xlib to XCB, there's a XInternAtoms routine. It's the Xlib method to request all the atoms in an array at one time to help hide the latency. Mostly the good Xlib time takes twice the time as the good XCB time. It also highlights the complexity of using XCB, 3 simple statements for Xlib vs 9 statements including two loops for XCB. If this simple test was expanded beyond requesting Atoms, XCB would allow submitting all the various requests at one time, Xlib wouldn't.
-[source.c]
+这是一个计算使用Xlib和XCB创建500个原子操作所需的时间的程序。
+它显示了Xlib方法，不良的XCB方法（与Xlib类似）和良好的XCB方法。
+在我的计算机上，XCB比Xlib快25倍。在另一台随机计算机上，罕见的出现了XCB比Xlib快117倍。
+
+为了对Xlib与XCB进行进一步比较，有一个XInternAtoms例程。
+Xlib方法可以一次请求一个数组中的所有原子，以帮助削减延迟。
+通常，良好的Xlib时间花费的时间是良好XCB时间的两倍。
+它还体现了使用XCB的复杂性，Xlib的3条简单语句的操作，对应XCB是9条语句（包括两个循环）。
+如果这个简单的测试超出了请求Atoms的范围，那么XCB将允许一次提交所有各种请求，而Xlib则不允许。
+
+[source,c]
 ....
 /* It's a good idea to paste this and other long code examples
    into a text editor for easier reading */
@@ -247,19 +288,26 @@ main () {
 }
 ....
 
-=== 3. 图形上下文
-When we perform various drawing operations (graphics, text, etc), we may specify various options for controlling how the data will be drawn (what foreground and background colors to use, how line edges will be connected, what font to use when drawing some text, etc). In order to avoid the need to supply hundreds of parameters to each drawing function, a graphical context structure is used. We set the various drawing options in this structure, and then we pass a pointer to this structure to any drawing routines. This is rather handy, as we often need to perform several drawing requests with the same options. Thus, we would initialize a graphical context, set the desired options, and pass this structure to all drawing functions.
+=== 图形上下文
+当我们执行各种绘制操作（图形，文本等）时，我们可以指定各种选项来控制如何绘制数据（使用哪种前景色和背景色，如何连接线边缘，绘制某些字体时使用什么字体） 文字等）。
+为了避免为每个绘图功能提供数百个参数，就需要使用图形上下文结构。
+我们在此结构中设置了各种绘图选项，然后将指向该结构的指针传递给任何绘图操作。
+这非常方便，因为我们经常需要使用相同的选项执行多个绘图请求。
+因此，我们将初始化图形上下文，设置所需的选项，然后将此结构传递给所有绘图函数。
 
-Note that graphic contexts have no client-side structure in XCB, they're just XIDs. Xlib has a client-side structure because it caches the GC contents so it can avoid making redundant requests, but of course XCB doesn't do that.
+请注意，图形上下文在XCB中没有客户端结构，它们只是XID。 Xlib具有客户端结构，因为它缓存了GC内容，因此可以避免发出冗余请求，但是XCB不会这样做。
 
-=== 4. 事件
-A structure is used to pass events received from the X server. XCB supports exactly the events specified in the protocol (33 events). This structure contains the type of event received (including a bit for whether it came from the server or another client), as well as the data associated with the event (e.g. position on the screen where the event was generated, mouse button associated with the event, region of the screen associated with a "redraw" event, etc). The way to read the event's data depends on the event type.
+=== 事件
+一种结构用于传递从X服务器接收的事件。 XCB完全支持协议中指定的事件（33个事件）。
+此结构包含接收到的事件的类型（包括有关它是来自服务器还是另一个客户端的信息），
+以及与事件相关的数据（例如，事件在屏幕上的位置，与事件相关的鼠标按钮，与“重绘”事件相关联的屏幕区域等）。
+读取事件数据的方式取决于事件类型。
 
 == 使用XCB基础程序
-=== 1. 安装XCB
-TODO: These instructions are out of date. Just reference the main XCB page so we don't have to maintain these instructions in more than one place.
+=== 安装XCB
+TODO: 这些说明已过时。 只需参考XCB主页，这样我们就不必在多个地方维护这些说明。
 
-To build XCB from source, you need to have installed at least:
+要从源代码构建XCB，您至少需要安装：
 
 * pkgconfig 0.15.0
 * automake 1.7
@@ -268,41 +316,43 @@ To build XCB from source, you need to have installed at least:
 * xsltproc
 * gperf 3.0.1
 
-You have to checkout in the git repository the following modules:
+您必须在git存储库中检出以下模块：
 
 * Xau from xlibs
 * xcb-proto
 * xcb
 
-Note that xcb-proto exists only to install header files, so typing 'make' or 'make all' will produce the message "Nothing to be done for 'all'". That's normal.
+请注意，xcb-proto仅用于安装头文件，因此键入 "make" 或 "make all" 将产生消息 "Nothing to be done for 'all'"。 这是正常现象。
 
-=== 2. 编译XCB基础程序
-Compiling XCB-based programs requires linking them with the XCB library. This is easily done thanks to pkgconfig:
-
-[source.bash]
+=== 编译XCB基础程序
+编译基于XCB的程序需要将它们与XCB库链接。借助pkgconfig可以轻松完成此操作：
+[source,bash]
 ....
 gcc -Wall prog.c -o prog `pkg-config --cflags --libs xcb`
 ....
-or simply :
-[source.bash]
+
+或者更简单使用:
+[source,bash]
 ....
 gcc -Wall prog.c -lxcb
 ....
 
 == 服务器的连接的打开和关闭
-An X program first needs to open the connection to the X server, using xcb_connect():
-[source.c]
+X程序首先需要打开与X服务器的连接，调用xcb_connect()函数：
+[source,c]
 ....
 xcb_connection_t *xcb_connect (const char *displayname,  // if NULL, uses the DISPLAY environment variable
                                 int        *screenp );    // returns the screen number of the connection; can provide NULL if you don't care
 ....
-To close a connection, it suffices to use:
-[source.c]
+
+要断开与X服务器的连接，只需要调用：
+[source,c]
 ....
 void xcb_disconnect (xcb_connection_t *c);
 ....
-So for example:
-[source.c]
+
+一个例子:
+[source,c]
 ....
 #include <xcb/xcb.h>
 
@@ -311,14 +361,17 @@ So for example:
 xcb_connection_t *connection = xcb_connect (NULL, NULL);
 xcb_disconnect (connection);
 ....
-Comparison Xlib/XCB:
+
+Xlib/XCB比较:
 
 - XOpenDisplay () => xcb_connect ()
 - XCloseDisplay () => xcb_disconnect ()
 
 == 连接的基本信息检查
-Once we have opened a connection to an X server, we should check some basic information about it: what screens it has, what is the size (width and height) of the screen, how many colors it supports (black and white ? grey scale ?, 256 colors ? more ?), and so on. We get such information from the xcbscreent structure:
-[source.c]
+一旦我们打开了与X服务器的连接，我们就需要获取一些X服务器的信息：
+使用的是哪个screens，screen的大小(宽定和高度)是多少，支持多少颜色(黑白?灰度?256色?还是更多?)，等等。
+我们从 `xcbscreent` 结构体中获取到这些信息：
+[source,c]
 ....
 typedef struct {
     xcb_window_t   root;
@@ -339,13 +392,14 @@ typedef struct {
     uint8_t        allowed_depths_len;
 } xcb_screen_t;
 ....
-We could retrieve the first screen of the connection by using the following function:
-[source.c]
+
+我们可以使用以下函数来检索连接的第一个屏幕：
+[source,c]
 ....
 xcb_screen_iterator_t xcb_setup_roots_iterator (xcb_setup_t *R);
 ....
-Here is a small program that shows how to use this function:
-[source.c]
+下面是一个展示如何使用这个函数的小例子：
+[source,c]
 ....
 #include <stdio.h>
 #include <xcb/xcb.h>

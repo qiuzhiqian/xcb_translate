@@ -3,19 +3,19 @@
 == 创建一个基本的窗体 - "hello world"程序
 
 在我们获取到了屏幕(screen)的一些基本信息后，我们就能够创建我们的第一个窗体。在X窗口系统中，一个窗口使用一个id来表示。因此，在XCB中，一个窗口的类型是：
-[source.c]
+[source,c]
 ....
 typedef uint32_t xcb_window_t;
 ....
 
 我们首先通过下面的函数为我们的窗口申请一个新的id：
-[source.c]
+[source,c]
 ....
 xcb_window_t xcb_generate_id (xcb_connection_t *connection);
 ....
 
 然后XCB提供了下面的这个函数来创建一个新窗体：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_create_window (xcb_connection_t *connection,    /* Pointer to the xcb_connection_t structure */
                                         uint8_t           depth,         /* Depth of the screen */
@@ -32,14 +32,14 @@ xcb_void_cookie_t xcb_create_window (xcb_connection_t *connection,    /* Pointer
                                         const uint32_t   *value_list );
 ....
 事实上我们创建了一个窗口后并不代表着这个窗口就会被绘制到桌面上。默认情况下，新创建的窗口是不会映射到到屏幕上(也就是不可见)。为了让我们的窗口可见，我们需要使用xcb_map_window()函数。这个函数的声明是这样的：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_map_window (xcb_connection_t  *connection,
                                     xcb_window_t       window );
 ....
 
 最后，在这儿提供一份小的程序实例，这个实例会在屏幕左上角的位置创建一个大小微150x150像素的窗口：
-[source.c]
+[source,c]
 ....
 #include <unistd.h>      /* pause() */
 
@@ -88,12 +88,12 @@ main ()
 }
 ....
 在这段代码中，你会看到一个前面没有解释过的新函数 - xcb_flush()。这个函数用来刷新所有正在等待处理的请求。更确切的说，其实有两个函数都能实现这样的功能，而第一个就是xcb_flush()：
-[source.c]
+[source,c]
 ....
 int xcb_flush (xcb_connection_t *c);
 ....
 这个函数会刷新所有正处于等待状态的发往X服务器(X server)的请求。另外一个函数就是xcb_aux_sync():
-[source.c]
+[source,c]
 ....
 int xcb_aux_sync (xcb_connection_t *c);
 ....
@@ -105,7 +105,7 @@ TODO: 应该告诉这个函数的返回值和常见的错误相关的内容。
 
 Xlib和XCB的比较:
 - XCreateWindow () =>
-[source.c]
+[source,c]
 ....
 xcb_generate_id ()
 xcb_create_window ()
@@ -116,17 +116,17 @@ xcb_create_window ()
 
 === 1. 分配图形上下文
 正如我们所说，图形上下文定义了几种可与各种绘图函数一起使用的属性。 为此，我们定义了一个图形上下文。 我们可以在一个窗口中使用多个图形上下文，以便绘制多种样式（不同的颜色，不同的线宽等）。 在XCB中，图形上下文作为一个窗口，以ID来表示：
-[source.c]
+[source,c]
 ....
 typedef uint32_t xcb_gcontext_t;
 ....
 我们首先会通过下面这个函数来向X服务器请求分配一个Id给我们的图形上下文：
-[source.c]
+[source,c]
 ....
 xcb_gcontext_t xcb_generate_id (xcb_connection_t *c);
 ....
 然后我们通过下面这个函数来设置图形上下文中的属性：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_create_gc (xcb_connection_t *c,
                                     xcb_gcontext_t    cid,
@@ -135,7 +135,7 @@ xcb_void_cookie_t xcb_create_gc (xcb_connection_t *c,
                                     const uint32_t   *value_list );
 ....
 现在，我们给出一个示例，说明如何分配图形上下文，该上下文指定每个绘制函数将在前景上使用黑色进行绘图。
-[source.c]
+[source,c]
 ....
 #include <xcb/xcb.h>
 
@@ -162,7 +162,7 @@ main ()
 
 Xlib和XCB相比较:
 - XCreateGC () =>
-[source.c]
+[source,c]
 ....
 xcb_generate_id ()
 xcb_create_gc ()
@@ -170,7 +170,7 @@ xcb_create_gc ()
 
 === 2. 改变图形上下文的属性
 一旦我们创建了一个图形上下文后，我们可能就需要改变它的属性(例如，改变用来绘制直线的前景颜色，或者改变用来显示文字的字体属性，请参见“用颜色绘制和为图形上下文分配字体”小节),通过调用下面这个函数来完成这个功能：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_change_gc (xcb_connection_t *c,            /* The XCB Connection */
                                     xcb_gcontext_t    gc,           /* The Graphic Context */
@@ -212,7 +212,7 @@ TODO: 给出一个设置多个属性的例子。
 === 3. 绘制基本图形：点、线、方框、圆形...
 我们创建一个图形上下文之后，我们就可以利用这个图形上下文设置XCB的函数在窗口上绘图。这些函数统称为基本绘图函数，让我们来看看如何使用这几个函数：
 为了绘制一个点或者多个点，我们可以这样使用：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_point (xcb_connection_t  *c,               /* The connection to the X server */
                                     uint8_t            coordinate_mode, /* Coordinate mode, usually set to XCB_COORD_MODE_ORIGIN */
@@ -228,7 +228,7 @@ XCB_COORD_MODE_PREVIOUS
 ....
 如果使用了XCB_COORD_MODE_PREVIOUS，那么除了第一个点外，所有的点(的坐标)均是相对自己前面应紧挨着的一个点而言的。
 xcb_point_t类型是一个只有两个字段(点的坐标值)的结构体：
-[source.c]
+[source,c]
 ....
 typedef struct {
     int16_t x;
@@ -237,7 +237,7 @@ typedef struct {
 ....
 我们在xpoints.c中找到一个使用例子。TODO 需要给出链接。
 要绘制一条直线或者折线，我们可以这样：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_line (xcb_connection_t  *c,               /* The connection to the X server */
                                     uint8_t            coordinate_mode, /* Coordinate mode, usually set to XCB_COORD_MODE_ORIGIN */
@@ -249,7 +249,7 @@ xcb_void_cookie_t xcb_poly_line (xcb_connection_t  *c,               /* The conn
 这个函数会在第一个点后第二个点之间绘制一条直线，然后在第二个点和第三个点之间绘制一条直线，依次类推。
 
 为了绘制一个或者多个线段，我们可以这样：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_segment (xcb_connection_t    *c,              /* The connection to the X server */
                                     xcb_drawable_t       drawable,       /* The drawable on which we want to draw the segment(s) */
@@ -258,7 +258,7 @@ xcb_void_cookie_t xcb_poly_segment (xcb_connection_t    *c,              /* The 
                                     const xcb_segment_t *segments );     /* An array of segments */
 ....
 xcb_segment_t类型仅仅是一个拥有四个字段(这个线段所定义的两个点的坐标)的结构体：
-[source.c]
+[source,c]
 ....
 typedef struct {
     int16_t x1;
@@ -268,7 +268,7 @@ typedef struct {
 } xcb_segment_t;
 ....
 要绘制一个或者多个矩形，我们可以这样：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_rectangle (xcb_connection_t      *c,              /* The connection to the X server */
                                         xcb_drawable_t         drawable,       /* The drawable on which we want to draw the rectangle(s) */
@@ -277,7 +277,7 @@ xcb_void_cookie_t xcb_poly_rectangle (xcb_connection_t      *c,              /* 
                                         const xcb_rectangle_t *rectangles );   /* An array of rectangles */
 ....
 xcb_rectangle_t仅仅是一个拥有四个字段(矩形的左上角点的坐标和矩形宽度一个矩形长度)的结构体：
-[source.c]
+[source,c]
 ....
 typedef struct {
     int16_t  x;
@@ -287,7 +287,7 @@ typedef struct {
 } xcb_rectangle_t;
 ....
 为了绘制一个或者多个椭圆弧线，我们可以这样：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_arc (xcb_connection_t *c,          /* The connection to the X server */
                                 xcb_drawable_t    drawable,   /* The drawable on which we want to draw the arc(s) */
@@ -296,7 +296,7 @@ xcb_void_cookie_t xcb_poly_arc (xcb_connection_t *c,          /* The connection 
                                 const xcb_arc_t  *arcs );     /* An array of arcs */
 ....
 xcb_arc_t是一个拥有6个字段的结构体：
-[source.c]
+[source,c]
 ....
 typedef struct {
     int16_t  x;       /* Top left x coordinate of the rectangle surrounding the ellipse */
@@ -312,7 +312,7 @@ typedef struct {
 下面我们会介绍填充几何图形内部的相关函数。后面我们不再详细说明这些函数了。因为它们的作用就是上面说的这些了。
 
 为了填充一个由点定义的多边形，我们可以这样：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_fill_poly (xcb_connection_t  *c,
                                     xcb_drawable_t     drawable,
@@ -329,7 +329,7 @@ XCB_POLY_SHAPE_NONCONVEX
 XCB_POLY_SHAPE_CONVEX
 ....
 为了填充一个或者多个矩形，我们可以这样：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_fill_rectangle (xcb_connection_t      *c,
                                             xcb_drawable_t         drawable,
@@ -338,7 +338,7 @@ xcb_void_cookie_t xcb_poly_fill_rectangle (xcb_connection_t      *c,
                                             const xcb_rectangle_t *rectangles );
 ....
 为了填充一个或者多个弧线，我们可以这样：
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_fill_arc (xcb_connection_t *c,
                                         xcb_drawable_t    drawable,
@@ -348,7 +348,7 @@ xcb_void_cookie_t xcb_poly_fill_arc (xcb_connection_t *c,
 ....
 为了说明这些函数，我在这个地方留一个实例。这个实例会绘制四个点，一条折线，两个线段，两个矩形，两个弧线。请注意我们此处第一次使用了事件(events)，事件在下一节会做说明。
 TODO: 使用screen-> root_depth来作为depth参数。
-[source.c]
+[source,c]
 ....
 #include <stdlib.h>
 #include <stdio.h>

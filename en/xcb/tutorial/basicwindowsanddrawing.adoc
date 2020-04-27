@@ -3,20 +3,20 @@
 == Creating a basic window - the "hello world" program
 
 After we got some basic information about our screen, we can create our first window. In the X Window System, a window is characterized by an Id. So, in XCB, a window is of type:
-[source.c]
+[source,c]
 ....
 typedef uint32_t xcb_window_t;
 ....
 
 We first ask for a new Id for our window, with this function:
 
-[source.c]
+[source,c]
 ....
 xcb_window_t xcb_generate_id (xcb_connection_t *connection);
 ....
 
 Then, XCB supplies the following function to create new windows:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_create_window (xcb_connection_t *connection,    /* Pointer to the xcb_connection_t structure */
                                         uint8_t           depth,         /* Depth of the screen */
@@ -34,14 +34,14 @@ xcb_void_cookie_t xcb_create_window (xcb_connection_t *connection,    /* Pointer
 ....
 
 The fact that we created the window does not mean that it will be drawn on screen. By default, newly created windows are not mapped on the screen (they are invisible). In order to make our window visible, we use the function xcb_map_window(), whose prototype is
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_map_window (xcb_connection_t  *connection,
                                     xcb_window_t       window );
 ....
 
 Finally, here is a small program to create a window of size 150x150 pixels, positioned at the top-left corner of the screen:
-[source.c]
+[source,c]
 ....
 #include <unistd.h>      /* pause() */
 
@@ -92,13 +92,13 @@ main ()
 
 In this code, you see one more function - xcb_flush(), not explained yet. It is used to flush all the pending requests. More precisely, there are 2 functions that do such things. The first one is xcb_flush():
 
-[source.c]
+[source,c]
 ....
 int xcb_flush (xcb_connection_t *c);
 ....
 
 This function flushes all pending requests to the X server (much like the fflush() function is used to flush standard output). The second function is xcb_aux_sync():
-[source.c]
+[source,c]
 ....
 int xcb_aux_sync (xcb_connection_t *c);
 ....
@@ -111,7 +111,7 @@ TODO: one should tell what these functions return and about the generic error
 Comparison Xlib/XCB:
 
 - XCreateWindow () =>
-[source.c]
+[source,c]
 ....
 xcb_generate_id ()
 xcb_create_window ()
@@ -122,17 +122,17 @@ Drawing in a window can be done using various graphical functions (drawing pixel
 
 === 1. Allocating a Graphics Context
 As we said, a graphical context defines several attributes to be used with the various drawing functions. For this, we define a graphical context. We can use more than one graphical context with a single window, in order to draw in multiple styles (different colors, different line widths, etc). In XCB, a Graphics Context is, as a window, characterized by an Id:
-[source.c]
+[source,c]
 ....
 typedef uint32_t xcb_gcontext_t;
 ....
 We first ask the X server to attribute an Id to our graphic context with this function:
-[source.c]
+[source,c]
 ....
 xcb_gcontext_t xcb_generate_id (xcb_connection_t *c);
 ....
 Then, we set the attributes of the graphic context with this function:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_create_gc (xcb_connection_t *c,
                                     xcb_gcontext_t    cid,
@@ -141,7 +141,7 @@ xcb_void_cookie_t xcb_create_gc (xcb_connection_t *c,
                                     const uint32_t   *value_list );
 ....
 We give now an example on how to allocate a graphic context that specifies that each drawing function that uses it will draw in foreground with a black color.
-[source.c]
+[source,c]
 ....
 #include <xcb/xcb.h>
 
@@ -170,7 +170,7 @@ See the next Subsection for more details.
 Comparison Xlib/XCB:
 
 - XCreateGC () =>
-[source.c]
+[source,c]
 ....
 xcb_generate_id ()
 xcb_create_gc ()
@@ -178,7 +178,7 @@ xcb_create_gc ()
 
 === 2. Changing the attributes of a Graphics Context
 Once we have allocated a Graphic Context, we may need to change its attributes (for example, changing the foreground color we use to draw a line, or changing the attributes of the font we use to display strings. See Subsections Drawing with a color and Assigning a Font to a Graphic Context). This is done by using this function:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_change_gc (xcb_connection_t *c,            /* The XCB Connection */
                                     xcb_gcontext_t    gc,           /* The Graphic Context */
@@ -223,7 +223,7 @@ TODO: give an example which sets several attributes.
 After we have created a Graphic Context, we can draw on a window using this Graphic Context, with a set of XCB functions, collectively called "drawing primitives". Let see how they are used.
 
 To draw a point, or several points, we use:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_point (xcb_connection_t  *c,               /* The connection to the X server */
                                     uint8_t            coordinate_mode, /* Coordinate mode, usually set to XCB_COORD_MODE_ORIGIN */
@@ -242,7 +242,7 @@ XCB_COORD_MODE_PREVIOUS
 If XCB_COORD_MODE_PREVIOUS is used, then all points but the first one are relative to the immediately previous point.
 
 The xcb_point_t type is just a structure with two fields (the coordinates of the point):
-[source.c]
+[source,c]
 ....
 typedef struct {
     int16_t x;
@@ -252,7 +252,7 @@ typedef struct {
 You could see an example in xpoints.c. TODO Set the link.
 
 To draw a line, or a polygonal line, we use:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_line (xcb_connection_t  *c,               /* The connection to the X server */
                                     uint8_t            coordinate_mode, /* Coordinate mode, usually set to XCB_COORD_MODE_ORIGIN */
@@ -264,7 +264,7 @@ xcb_void_cookie_t xcb_poly_line (xcb_connection_t  *c,               /* The conn
 This function will draw the line between the first and the second points, then the line between the second and the third points, and so on.
 
 To draw a segment, or several segments, we use:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_segment (xcb_connection_t    *c,              /* The connection to the X server */
                                     xcb_drawable_t       drawable,       /* The drawable on which we want to draw the segment(s) */
@@ -273,7 +273,7 @@ xcb_void_cookie_t xcb_poly_segment (xcb_connection_t    *c,              /* The 
                                     const xcb_segment_t *segments );     /* An array of segments */
 ....
 The xcb_segment_t type is just a structure with four fields (the coordinates of the two points that define the segment):
-[source.c]
+[source,c]
 ....
 typedef struct {
     int16_t x1;
@@ -283,7 +283,7 @@ typedef struct {
 } xcb_segment_t;
 ....
 To draw a rectangle, or several rectangles, we use:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_rectangle (xcb_connection_t      *c,              /* The connection to the X server */
                                         xcb_drawable_t         drawable,       /* The drawable on which we want to draw the rectangle(s) */
@@ -292,7 +292,7 @@ xcb_void_cookie_t xcb_poly_rectangle (xcb_connection_t      *c,              /* 
                                         const xcb_rectangle_t *rectangles );   /* An array of rectangles */
 ....
 The xcb_rectangle_t type is just a structure with four fields (the coordinates of the top-left corner of the rectangle, and its width and height):
-[source.c]
+[source,c]
 ....
 typedef struct {
     int16_t  x;
@@ -302,7 +302,7 @@ typedef struct {
 } xcb_rectangle_t;
 ....
 To draw an elliptical arc, or several elliptical arcs, we use:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_arc (xcb_connection_t *c,          /* The connection to the X server */
                                 xcb_drawable_t    drawable,   /* The drawable on which we want to draw the arc(s) */
@@ -311,7 +311,7 @@ xcb_void_cookie_t xcb_poly_arc (xcb_connection_t *c,          /* The connection 
                                 const xcb_arc_t  *arcs );     /* An array of arcs */
 ....
 The xcb_arc_t type is a structure with six fields:
-[source.c]
+[source,c]
 ....
 typedef struct {
     int16_t  x;       /* Top left x coordinate of the rectangle surrounding the ellipse */
@@ -327,7 +327,7 @@ Note: the angles are expressed in units of 1/64 of a degree, so to have an angle
 The corresponding function which fill inside the geometrical object are listed below, without further explanation, as they are used as the above functions.
 
 To Fill a polygon defined by the points given as arguments , we use
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_fill_poly (xcb_connection_t  *c,
                                     xcb_drawable_t     drawable,
@@ -344,7 +344,7 @@ XCB_POLY_SHAPE_NONCONVEX
 XCB_POLY_SHAPE_CONVEX
 ....
 To fill one or several rectangles, we use:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_fill_rectangle (xcb_connection_t      *c,
                                             xcb_drawable_t         drawable,
@@ -353,7 +353,7 @@ xcb_void_cookie_t xcb_poly_fill_rectangle (xcb_connection_t      *c,
                                             const xcb_rectangle_t *rectangles );
 ....
 To fill one or several arcs, we use:
-[source.c]
+[source,c]
 ....
 xcb_void_cookie_t xcb_poly_fill_arc (xcb_connection_t *c,
                                         xcb_drawable_t    drawable,
@@ -364,7 +364,7 @@ xcb_void_cookie_t xcb_poly_fill_arc (xcb_connection_t *c,
 To illustrate these functions, here is an example that draws four points, a polygonal line, two segments, two rectangles and two arcs. Remark that we use events for the first time, as an introduction to the next section.
 
 TODO: Use screen-> root_depth for depth parameter.
-[source.c]
+[source,c]
 ....
 #include <stdlib.h>
 #include <stdio.h>
