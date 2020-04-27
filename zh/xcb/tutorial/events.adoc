@@ -286,14 +286,17 @@ typedef struct {
 ....
 
 ==== 鼠标指针进入和离开事件
-Another type of event that applications might be interested in, is a mouse pointer entering a window the program controls, or leaving such a window. Some programs use these events to show the user that the application is now in focus. In order to register for such an event type, we should add one (or more) of the following masks when we create our window:
+应用程序可能会感兴趣的另一种事件是鼠标指针进入程序控制的窗口，或离开该窗口。 
+一些程序使用这些事件向用户显示该应用程序现在处于焦点。 
+为了注册这种事件类型，我们在创建窗口时应添加以下一个（或多个）掩码：
+
 [source,c]
 ....
 XCB_EVENT_MASK_ENTER_WINDOW     // notify us when the mouse pointer enters any of our controlled windows.
 XCB_EVENT_MASK_LEAVE_WINDOW     // notify us when the mouse pointer leaves any of our controlled windows. 
 ....
 
-The structure to be checked for in our events loop is the same for these two events, and is the following:
+事件循环中要检查的结构对于这两个事件是相同的，如下所示：
 [source,c]
 ....
 typedef struct {
@@ -319,7 +322,7 @@ typedef xcb_enter_notify_event_t xcb_leave_notify_event_t;
 ==== 键盘按键聚焦
 There may be many windows on a screen, but only a single keyboard attached to them. How does the X server then know which window should be sent a given keyboard input ? This is done using the keyboard focus. Only a single window on the screen may have the keyboard focus at a given time. There is a XCB function that allows a program to set the keyboard focus to a given window. The user can usually set the keyboard focus using the window manager (often by clicking on the title bar of the desired window). Once our window has the keyboard focus, every key press or key release will cause an event to be sent to our program (if it registered for these event types...).
 
-==== Keyboard press and release events
+==== 键盘按键按下和释放事件
 If a window controlled by our program currently holds the keyboard focus, it can receive key press and key release events. So, we should add one (or more) of the following masks when we create our window:
 
     XCB_EVENT_MASK_KEY_PRESS     // key was pressed while any of our controlled windows had the keyboard focus
@@ -345,7 +348,7 @@ These generate events of the same type, which goes by two names:
     typedef xcb_key_press_event_t  xcb_key_release_event_t;
 TODO: Talk about getting the ASCII code from the key code.
 
-=== X events: a complete example
+=== X事件: 一个完整的示例
 As an example for handling events, we show a program that creates a window, enters an events loop and checks for all the events described above, and writes on the terminal the relevant characteristics of the event. With this code, it should be easy to add drawing operations, like those which have been described above.
 [source,c]
 ....
@@ -498,5 +501,5 @@ main ()
     return 0;
 }
 ....
-Links: XcbPorting tutorial
+Links: XcbPorting link::../tutorial.adoc[tutorial]
 Last edited Tue 03 Dec 2013 05:20:34 AM UTC
