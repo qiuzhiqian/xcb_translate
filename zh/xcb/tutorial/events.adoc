@@ -173,7 +173,7 @@ Xlib/XCB比较:
 
 请注意此处的隐含假设：我们的窗口的内容在被其他窗口遮盖（覆盖）时会丢失。X服务器不保存该内容的原因是为了节省内存。
 毕竟，在某些时间里，显示器上的窗口数量可能非常大，因此存储所有窗口的内容可能需要大量内存。
- (实际上，有一种方法可以告诉X服务器在特殊情况下存储窗口的内容，我们将在后面看到)
+(实际上，有一种方法可以告诉X服务器在特殊情况下存储窗口的内容，我们将在后面看到)
 
 暴露事件的定义：
 [source,c]
@@ -192,18 +192,19 @@ typedef struct {
 } xcb_expose_event_t;
 ....
 
-=== Getting user input
-User input traditionally comes from two sources: the mouse and the keyboard. Various event types exist to notify us of user input (a key being presses on the keyboard, a key being released on the keyboard, the mouse moving over our window, the mouse entering (or leaving) our window, and so on.
+=== 获取用户输入
+传统上，用户输入来自两个来源：鼠标和键盘。
+存在各种事件类型来通知我们用户进行了输入（按下键盘上的键，释放键盘上的键，鼠标在窗口上移动，鼠标进入（或离开）窗口等等）。
 
-==== Mouse button press and release events
-The first event type we will deal with is a mouse button-press (or button-release) event in our window. In order to register to such an event type, we should add one (or more) of the following masks when we create our window:
+==== 鼠标按键按下和释放事件
+我们要处理的第一个事件类型是窗口中的鼠标按下（或释放按钮）事件。为了注册到这样的事件类型，我们在创建窗口时应添加以下一个（或多个）掩码：
 [source,c]
 ....
 XCB_EVENT_MASK_BUTTON_PRESS     //notify us of any button that was pressed in one of our windows.
 XCB_EVENT_MASK_BUTTON_RELEASE   //notify us of any button that was released in one of our windows.
 ....
 
-Both kinds of events are represented with the same structure, but for the sake of self-documentation, it goes by two names:
+两种事件都以相同的结构表示，但是出于自我说明的目的，它具有两个名称：
 [source,c]
 ....
 typedef struct {
@@ -225,9 +226,9 @@ typedef struct {
 typedef xcb_button_press_event_t xcb_button_release_event_t;
 ....
 
-The time field may be used to calculate "double-click" situations by an application (e.g. if the mouse button was clicked two times in a duration shorter than a given amount of time, assume this was a double click).
+time字段可用于计算应用程序的“双击”情况（例如，如果鼠标按钮在短于给定时间的时间内两次单击，则假定这是双击）。
 
-The state field is a mask of the buttons held down during the event. It is a bitwise OR of any of the following (from the xcbbuttonmaskt and xcbmodmaskt enumerations):
+state字段是事件期间按下的按钮的掩码。它是以下任意一项的按位“或”（来自xcbbuttonmaskt和xcbmodmaskt枚举）：
 [source,c]
 ....
 XCB_BUTTON_MASK_1
@@ -245,13 +246,14 @@ XCB_MOD_MASK_4
 XCB_MOD_MASK_5
 ....
 
-Their names are self explanatory, where the first 5 refer to the mouse buttons that are being pressed, while the rest refer to various "special keys" that are being pressed (Mod mask 1 is usually the 'Alt' key or the 'Meta' key).
+它们的意思不言自明，前5个是指被按下的鼠标按钮，其余的是指被按下的各种“特殊键”（Mod mask 1通常是“ Alt”键或“ Meta” 键）。
 
-TODO: Problem: it seems that the state does not change when clicking with various buttons.
+TODO: 问题: 使用各种按钮单击时，状态似乎没有改变。
 
-==== Mouse movement events
-Similar to mouse button press and release events, we also can be notified of various mouse movement events. These can be split into two families. One is of mouse pointer movement while no buttons are pressed, and the second is a mouse pointer motion while one (or more) of the buttons are pressed (this is sometimes called "a mouse drag operation", or just "dragging"). The following event masks may be added during the creation of our window to register for these events:
-
+==== 鼠标移动事件
+与鼠标按钮的按下和释放事件类似，我们也可以收到各种鼠标移动事件的通知。
+我们可以分为两类情况。
+一种是在没有按下任何按钮的情况下鼠标指针移动，第二种是在按下一个（或多个）按钮时的鼠标指针移动（有时称为“鼠标拖动操作”，或简称为“拖动”）。在创建窗口期间，可以添加以下事件掩码来注册这些事件：
 [source,c]
 ....
 XCB_EVENT_MASK_POINTER_MOTION   // motion with no mouse button held
@@ -263,7 +265,7 @@ XCB_EVENT_MASK_BUTTON_4_MOTION
 XCB_EVENT_MASK_BUTTON_5_MOTION
 ....
 
-These all generate events of this type:
+这些都会生成此类事件:
 [source,c]
 ....
 typedef struct {
@@ -283,7 +285,7 @@ typedef struct {
 } xcb_motion_notify_event_t;
 ....
 
-==== Mouse pointer enter and leave events
+==== 鼠标指针进入和离开事件
 Another type of event that applications might be interested in, is a mouse pointer entering a window the program controls, or leaving such a window. Some programs use these events to show the user that the application is now in focus. In order to register for such an event type, we should add one (or more) of the following masks when we create our window:
 [source,c]
 ....
@@ -314,7 +316,7 @@ typedef struct {
 typedef xcb_enter_notify_event_t xcb_leave_notify_event_t;
 ....
 
-==== The keyboard focus
+==== 键盘按键聚焦
 There may be many windows on a screen, but only a single keyboard attached to them. How does the X server then know which window should be sent a given keyboard input ? This is done using the keyboard focus. Only a single window on the screen may have the keyboard focus at a given time. There is a XCB function that allows a program to set the keyboard focus to a given window. The user can usually set the keyboard focus using the window manager (often by clicking on the title bar of the desired window). Once our window has the keyboard focus, every key press or key release will cause an event to be sent to our program (if it registered for these event types...).
 
 ==== Keyboard press and release events
