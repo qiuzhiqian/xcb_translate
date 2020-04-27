@@ -322,7 +322,7 @@ typedef struct {
     int16_t  angle2;  /* Angle at which the arc ends */
 } xcb_arc_t;
 ....
-Note: the angles are expressed in units of 1/64 of a degree, so to have an angle of 90 degrees, starting at 0, angle1 = 0 and angle2 = 90 << 6. Positive angles indicate counterclockwise motion, while negative angles indicate clockwise motion.
+NOTE: the angles are expressed in units of 1/64 of a degree, so to have an angle of 90 degrees, starting at 0, angle1 = 0 and angle2 = 90 << 6. Positive angles indicate counterclockwise motion, while negative angles indicate clockwise motion.
 
 The corresponding function which fill inside the geometrical object are listed below, without further explanation, as they are used as the above functions.
 

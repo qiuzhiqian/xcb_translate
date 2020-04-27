@@ -18,7 +18,7 @@ If you follow these rules, you will be getting about all the latency hiding you 
 Hope this helps. Comment welcome.
 
 Double Buffering
-Double buffering on X is kind of a mess. Here's documentation on the Multi-Buffering and XDBE extensions in case someone wants to write a protocol description for XCB. Note: Multibuffer is deprecated in favour of DBE. It also seems that DBE is deprecated. See this thread.
+Double buffering on X is kind of a mess. Here's documentation on the Multi-Buffering and XDBE extensions in case someone wants to write a protocol description for XCB. NOTE: Multibuffer is deprecated in favour of DBE. It also seems that DBE is deprecated. See this thread.
 
 A conversation with keithp indicates that his current thinking is that the right way to do double buffering is via an explicit copy from a separate pixmap. This is portable to absolutely everywhere, and requires no magic. Probably there will soon be a convention for the compositing manager to handle the double buffering on systems where one is running, since it needs to buffer anyhow. But this would be in the future.
 

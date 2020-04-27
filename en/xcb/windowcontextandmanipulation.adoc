@@ -95,7 +95,7 @@ The first thing we want to do would be to set the name for our window. This is d
 
         return 0;
     }
-Note: the use of the atoms needs our program to be compiled and linked against xcb_atom, so that we have to use
+NOTE: the use of the atoms needs our program to be compiled and linked against xcb_atom, so that we have to use
 
     gcc prog.c -o prog `pkg-config --cflags --libs xcb-atom`
 ...for the program to compile fine.

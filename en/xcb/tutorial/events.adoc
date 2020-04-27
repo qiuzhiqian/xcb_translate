@@ -1,12 +1,14 @@
 = Events
+:toc:
+:numbered:
 
 == X Events
-In an X program, everything is driven by events. Event painting on the screen is sometimes done as a response to an event (an Expose event). If part of a program's window that was hidden, gets exposed (e.g. the window was raised above other widows), the X server will send an "expose" event to let the program know it should repaint that part of the window. User input (key presses, mouse movement, etc) is also received as a set of events.
+In an X program, everything is driven by events. Event painting on the screen is sometimes done as a response to an event (an Expose event). If part of a program's window that was hidden, gets exposed (e.g. the window was raised above other windows), the X server will send an "expose" event to let the program know it should repaint that part of the window. User input (key presses, mouse movement, etc) is also received as a set of events.
 
-=== 1. Registering for event types using event masks
+=== Registering for event types using event masks
 During the creation of a window, you should give it what kind of events it wishes to receive. Thus, you may register for various mouse (also called pointer) events, keyboard events, expose events, and so on. This is done for optimizing the server-to-client connection (i.e. why send a program (that might even be running at the other side of the globe) an event it is not interested in ?)
 
-In XCB, you use the "valuemask" and "valuelist" data in the xcb_create_window() function to register for events. Here is how we register for Expose event when creating a window:
+In XCB, you use the `"valuemask"` and `"valuelist"` data in the `xcb_create_window()` function to register for events. Here is how we register for Expose event when creating a window:
 [source,c]
 ....
 mask = XCB_CW_EVENT_MASK;
@@ -17,7 +19,8 @@ xcb_create_window (connection, depth, window, root->root,
                     XCB_WINDOW_CLASS_INPUT_OUTPUT, root->root_visual,
                     mask, valwin );
 ....
-XCB_EVENT_MASK_EXPOSURE is a constant defined in the xcb_event_mask_t enumeration in the "xproto.h" header file. If we wanted to register for several event types, we can logically "or" them, as follows:
+
+`XCB_EVENT_MASK_EXPOSURE` is a constant defined in the `xcb_event_mask_t` enumeration in the `"xproto.h"` header file. If we wanted to register for several event types, we can logically "or" them, as follows:
 [source,c]
 ....
 mask = XCB_CW_EVENT_MASK;
@@ -28,6 +31,7 @@ xcb_create_window (connection, depth, window, root->root,
                     XCB_WINDOW_CLASS_INPUT_OUTPUT, root->root_visual,
                     mask, valwin );
 ....
+
 This registers for Expose events as well as for mouse button presses inside the created window. You should note that a mask may represent several event sub-types.
 
 The values that a mask could take are given by the xcb_cw_t enumeration:
@@ -51,7 +55,8 @@ typedef enum {
     XCB_CW_CURSOR            = 1L<<14
 } xcb_cw_t;
 ....
-Note: we must be careful when setting the values of the valwin parameter, as they have to follow the order the xcb_cw_t enumeration. Here is an example:
+
+NOTE: we must be careful when setting the values of the valwin parameter, as they have to follow the order the xcb_cw_t enumeration. Here is an example:
 [source,c]
 ....
 mask = XCB_CW_EVENT_MASK | XCB_CW_BACK_PIXMAP;
@@ -59,6 +64,7 @@ valwin[0] = XCB_NONE;                                               /* for XCB_C
 valwin[1] = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTTON_PRESS;  /* for XCB_CW_EVENT_MASK, whose value (2048)     */
                                                                     /* is greater than the one of XCB_CW_BACK_PIXMAP */
 ....
+
 If the window has already been created, we can use the xcb_change_window_attributes() function to set the events that the window will receive. The subsection Configuring a window shows its prototype. As an example, here is a piece of code that configures the window to receive the Expose and ButtonPress events:
 [source,c]
 ....
@@ -66,9 +72,10 @@ const static uint32_t values[] = { XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_BUTT
 
 xcb_change_window_attributes (connection, window, XCB_CW_EVENT_MASK, values);
 ....
-Note: A common programmer oversight is adding code to handle new event types while forgetting to add the masks for these events in the creation of the window. This leads to programmers debugging for hours, wondering "Why doesn't my program notice that I released the button?", only to find that they registered button press events but not button release events.
 
-=== 2. Receiving events: writing the events loop
+NOTE: A common programmer oversight is adding code to handle new event types while forgetting to add the masks for these events in the creation of the window. This leads to programmers debugging for hours, wondering "Why doesn't my program notice that I released the button?", only to find that they registered button press events but not button release events.
+
+=== Receiving events: writing the events loop
 After we have registered for the event types we are interested in, we need to enter a loop of receiving events and handling them. There are two ways to receive events: a blocking way and a non-blocking way:
 
 The blocking way:
@@ -76,6 +83,7 @@ The blocking way:
 ....
 xcb_generic_event_t *xcb_wait_for_event (xcb_connection_t *c);
 ....
+
 ...blocks until an event is queued in the X server, then dequeues it from the queue, then returns it as a newly allocated structure (which is your responsibility to free). May return NULL in event of an error.
 
 The non-blocking way:
@@ -132,18 +140,10 @@ Basically, the events are managed in the same way as with xcb_wait_for_event. Ob
 
 Comparison Xlib/XCB:
 
-- XNextEvent () =>
-[source,c]
-....
-xcb_wait_for_event ()
-....
-- XPending () , XCheckMaskEvent () =>
-[source,c]
-....
-xcb_poll_for_event ()
-....
+- XNextEvent () => xcb_wait_for_event ()
+- XPending () , XCheckMaskEvent () => xcb_poll_for_event ()
 
-=== 3. Expose events
+=== Expose events
 The Expose event is one of the most basic (and most used) events an application may receive. It will be sent to us in one of several cases:
 
 - A window that covered part of our window has moved away, exposing part (or all) of our window.
@@ -170,10 +170,10 @@ typedef struct {
 } xcb_expose_event_t;
 ....
 
-=== 4. Getting user input
+=== Getting user input
 User input traditionally comes from two sources: the mouse and the keyboard. Various event types exist to notify us of user input (a key being presses on the keyboard, a key being released on the keyboard, the mouse moving over our window, the mouse entering (or leaving) our window, and so on.
 
-==== 4.1 Mouse button press and release events
+==== Mouse button press and release events
 The first event type we will deal with is a mouse button-press (or button-release) event in our window. In order to register to such an event type, we should add one (or more) of the following masks when we create our window:
 [source,c]
 ....
@@ -224,9 +224,11 @@ Their names are self explanatory, where the first 5 refer to the mouse buttons t
 
 TODO: Problem: it seems that the state does not change when clicking with various buttons.
 
-==== 4.2. Mouse movement events
+==== Mouse movement events
 Similar to mouse button press and release events, we also can be notified of various mouse movement events. These can be split into two families. One is of mouse pointer movement while no buttons are pressed, and the second is a mouse pointer motion while one (or more) of the buttons are pressed (this is sometimes called "a mouse drag operation", or just "dragging"). The following event masks may be added during the creation of our window to register for these events:
 
+[source,c]
+....
 XCB_EVENT_MASK_POINTER_MOTION   // motion with no mouse button held
 XCB_EVENT_MASK_BUTTON_MOTION    // motion with one or more mouse buttons held
 XCB_EVENT_MASK_BUTTON_1_MOTION  // motion while only 1st mouse button is held
@@ -234,6 +236,8 @@ XCB_EVENT_MASK_BUTTON_2_MOTION  // and so on...
 XCB_EVENT_MASK_BUTTON_3_MOTION
 XCB_EVENT_MASK_BUTTON_4_MOTION
 XCB_EVENT_MASK_BUTTON_5_MOTION
+....
+
 These all generate events of this type:
 [source,c]
 ....
@@ -254,7 +258,7 @@ typedef struct {
 } xcb_motion_notify_event_t;
 ....
 
-==== 4.3. Mouse pointer enter and leave events
+==== Mouse pointer enter and leave events
 Another type of event that applications might be interested in, is a mouse pointer entering a window the program controls, or leaving such a window. Some programs use these events to show the user that the application is now in focus. In order to register for such an event type, we should add one (or more) of the following masks when we create our window:
 [source,c]
 ....
@@ -285,10 +289,10 @@ typedef struct {
 typedef xcb_enter_notify_event_t xcb_leave_notify_event_t;
 ....
 
-==== 4.4. The keyboard focus
+==== The keyboard focus
 There may be many windows on a screen, but only a single keyboard attached to them. How does the X server then know which window should be sent a given keyboard input ? This is done using the keyboard focus. Only a single window on the screen may have the keyboard focus at a given time. There is a XCB function that allows a program to set the keyboard focus to a given window. The user can usually set the keyboard focus using the window manager (often by clicking on the title bar of the desired window). Once our window has the keyboard focus, every key press or key release will cause an event to be sent to our program (if it registered for these event types...).
 
-==== 4.5. Keyboard press and release events
+==== Keyboard press and release events
 If a window controlled by our program currently holds the keyboard focus, it can receive key press and key release events. So, we should add one (or more) of the following masks when we create our window:
 
     XCB_EVENT_MASK_KEY_PRESS     // key was pressed while any of our controlled windows had the keyboard focus
@@ -314,7 +318,7 @@ These generate events of the same type, which goes by two names:
     typedef xcb_key_press_event_t  xcb_key_release_event_t;
 TODO: Talk about getting the ASCII code from the key code.
 
-=== 5. X events: a complete example
+=== X events: a complete example
 As an example for handling events, we show a program that creates a window, enters an events loop and checks for all the events described above, and writes on the terminal the relevant characteristics of the event. With this code, it should be easy to add drawing operations, like those which have been described above.
 [source,c]
 ....
