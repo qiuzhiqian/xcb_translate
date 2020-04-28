@@ -506,5 +506,6 @@ main ()
     return 0;
 }
 ....
-Links: XcbPorting link::../tutorial.adoc[tutorial]
+Links: XcbPorting link:../tutorial.adoc[tutorial]
+
 Last edited Tue 03 Dec 2013 05:20:34 AM UTC
