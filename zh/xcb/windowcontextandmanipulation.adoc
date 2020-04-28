@@ -149,7 +149,7 @@ xcb_void_cookie_t xcb_unmap_window (xcb_connection_t *c,
 这个函数的使用方式跟 `xcb_map_window()` 是一样的。
 
 === 配置窗口
-As we have seen when we have created our first window, in the X Events subsection, we can set some attributes for the window (that is, the position, the size, the events the window will receive, etc). If we want to modify them, but the window is already created, we can change them by using the following function:
+正如我们在在X Events子节中创建第一个窗口时所看到的那样，我们可以为窗口设置一些属性（即位置，大小，窗口将接收的事件等）。 如果要修改它们，但窗口已经创建，则可以使用以下函数来更改它们：
 
 [source,c]
 ....
@@ -159,7 +159,7 @@ xcb_void_cookie_t xcb_configure_window (xcb_connection_t *c,            /* The c
                                         const uint32_t   *value_list);  /* The values to set */
 ....
 
-We set the value_mask to one or several mask values that are in the xcb_config_window_t enumeration in the xproto.h header:
+我们将value_mask设置为 `xproto.h` 标头中 `xcb_config_window_t` 枚举中的一个或多个掩码值：
 [source,c]
 ....
 XCB_CONFIG_WINDOW_X             // new x coordinate of the window's top left corner
@@ -171,7 +171,7 @@ XCB_CONFIG_WINDOW_SIBLING
 XCB_CONFIG_WINDOW_STACK_MODE    // the new stacking order
 ....
 
-We then give to value_mask the new value. We now describe how to use xcb_configure_window_t in some useful situations.
+然后，我们给value_mask赋一个新值。 现在我们描述在一些有用的情况下如何使用xcb_configure_window_t。
 
 === 在屏幕上移动窗口
 An operation we might want to do with windows is to move them to a different location. This can be done like this:
@@ -183,10 +183,10 @@ const static uint32_t values[] = { 10, 20 };
 xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
 ....
 
-Note that when the window is moved, it might get partially exposed or partially hidden by other windows, and thus we might get Expose events due to this operation.
+NOTE: 请注意，移动窗口时，它可能会被其他窗口暴露或者掩藏一部分。因此此操作，我们可能会遇到Expose事件。
 
 === 调整窗口大小
-Yet another operation we can do is to change the size of a window. This is done using the following code:
+我们可以做的另一种操作是更改窗口的大小。我们可以使用下面这个函数来达到这个目的：
 [source,c]
 ....
 const static uint32_t values[] = { 200, 300 };
@@ -195,7 +195,7 @@ const static uint32_t values[] = { 200, 300 };
 xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
 ....
 
-We can also combine the move and resize operations using one single call to xcb_configure_window_t:
+我们还可以使用一次对xcb_configure_window_t的调用来组合移动和调整大小操作：
 [source,c]
 ....
 const static uint32_t values[] = { 10, 20, 200, 300 };
@@ -206,7 +206,7 @@ xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDO
 ....
 
 === 更改窗口堆叠顺序：升高和降低
-Until now, we changed properties of a single window. We'll see that there are properties that relate to the window and other windows. One of them is the stacking order. That is, the order in which the windows are layered on top of each other. The front-most window is said to be on the top of the stack, while the back-most window is at the bottom of the stack. Here is how to manipulate our windows stack order:
+到目前为止，我们更改了单个窗口的属性。我们看到存在一些该窗口与其他窗口相关的属性。其中之一是堆叠顺序。即，窗口彼此层叠的顺序。最前面的窗口在堆栈的顶部，而最后面的窗口在堆栈的底部。以下是操作Windows堆栈顺序的方法：
 [source,c]
 ....
 const static uint32_t values[] = { XCB_STACK_MODE_ABOVE };
@@ -220,7 +220,7 @@ const static uint32_t values[] = { XCB_STACK_MODE_BELOW };
 xcb_configure_window (connection, window, XCB_CONFIG_WINDOW_STACK_MODE, values);
 ....
 === 获取关于窗口的信息
-Just like we can set various attributes of our windows, we can also ask the X server supply the current values of these attributes. For example, we can check where a window is located on the screen, what is its current size, whether it is mapped or not, etc. The structure that contains some of this information is:
+就像我们可以设置窗口的各种属性一样，我们也可以要求X服务器提供这些属性的当前值。 例如，我们可以检查窗口在屏幕上的位置，窗口的当前大小，是否被映射等。包含这些信息的结构为：
 [source,c]
 ....
 typedef struct {
@@ -237,7 +237,7 @@ typedef struct {
 } xcb_get_geometry_reply_t;
 ....
 
-Two functions fill this structure:
+下面的函数会填充这个结构体：
 [source,c]
 ....
 xcb_get_geometry_cookie_t xcb_get_geometry (xcb_connection_t *connection,
@@ -248,7 +248,7 @@ xcb_get_geometry_reply_t *xcb_get_geometry_reply (xcb_connection_t          *con
                                                     xcb_generic_error_t      **error);
 ....
 
-You use them as follows:
+你可以像下面这样使用它们:
 [source,c]
 ....
 xcb_get_geometry_cookie_t  geomCookie = xcb_get_geometry (connection, window);  // window is a xcb_drawable_t
@@ -257,9 +257,9 @@ xcb_get_geometry_reply_t  *geom       = xcb_get_geometry_reply (connection, geom
 free (geom);
 ....
 
-One problem is that the returned location of the window is relative to its parent window. This makes these coordinates rather useless for any window manipulation functions, like moving it on the screen. In order to overcome this problem, we need to take a two-step operation. First, we find out the Id of the parent window of our window. We then translate the above relative coordinates to the screen coordinates.
+但是问题是，这个函数返回位置是相对于其父窗口的相对位置。这使得这些坐标对于任何窗口操作功能都毫无用处，例如在屏幕上移动它。 为了克服这个问题，我们需要采取两步操作。首先，我们找到窗口的父窗口的ID。 然后，我们将上述相对坐标转换为屏幕坐标。
 
-To get the Id of the parent window, we need this structure:
+为了获取父窗口的ID，我们需要用到下面这个结构体：
 [source,c]
 ....
 typedef struct {
@@ -274,7 +274,7 @@ typedef struct {
 } xcb_query_tree_reply_t;
 ....
 
-To fill this structure, we use these two functions:
+为了填充此结构，我们使用以下两个功能：
 [source,c]
 ....
 xcb_query_tree_cookie_t xcb_query_tree       (xcb_connection_t        *connection,
@@ -285,7 +285,7 @@ xcb_query_tree_reply_t *xcb_query_tree_reply (xcb_connection_t        *connectio
                                                 xcb_generic_error_t    **error );
 ....
 
-The translated coordinates will be found in this structure:
+转换后的坐标包含在这个结构体中：
 [source,c]
 ....
 typedef struct {
@@ -299,7 +299,7 @@ typedef struct {
 } xcb_translate_coordinates_reply_t;
 ....
 
-As usual, we need two functions to fill this structure:
+通常我们需要使用下面这两个函数来填充这个结构体：
 [source,c]
 ....
 xcb_translate_coordinates_cookie_t xcb_translate_coordinates (xcb_connection_t     *c,
@@ -313,7 +313,7 @@ xcb_translate_coordinates_reply_t *xcb_translate_coordinates_reply (xcb_connecti
                                                                     xcb_generic_error_t                **e );
 ....
 
-We use them as follows:
+我们可以这样使用：
 [source,c]
 ....
 /* assume connection and window */
@@ -350,11 +350,11 @@ free (trans);
 free (tree);
 free (geom);
 ....
-The work is a bit verbose, but XCB is a quite low-level library.
+这个流程有些冗长，但是XCB是一个很底层的库。
 
-TODO: the utilization of these functions should be a prog, which displays the coordinates of the window.
+TODO: 应该编写一个使用这些函数的应用，来显示窗口的坐标。
 
-There is another structure that gives informations about our window:
+这是可以提供我们窗口信息的另外一个结构体：
 [source,c]
 ....
 typedef struct {
@@ -378,7 +378,7 @@ typedef struct {
     uint16_t       do_not_propagate_mask;
 } xcb_get_window_attributes_reply_t;
 
-XCB supplies these two functions to fill it:
+XCB提供了下面这两个函数来填充这个结构体：
 
 xcb_get_window_attributes_cookie_t xcb_get_window_attributes (xcb_connection_t *connection,
                                                                 xcb_window_t      window );
@@ -388,7 +388,7 @@ xcb_get_window_attributes_reply_t *xcb_get_window_attributes_reply (xcb_connecti
                                                                     xcb_generic_error_t               **e );
 ....
 
-You use them as follows:
+我们可以这样来使用：
 [source,c]
 ....
 /* assume connection and window */
