@@ -1,4 +1,4 @@
-= XCB 文档翻译
+= XCB 官方文档翻译
 
 个人在查阅XCB(X protocol C-language Binding)的文档时，发现 https://xcb.freedesktop.org/[官方]文档都只有英文本版。为了加深自己的理解，所以试着一边查阅一边翻译。
 

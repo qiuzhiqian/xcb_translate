@@ -1,24 +1,24 @@
-= Handling text and fonts
+= 文本和字体处理
 :toc:
 :numbered:
 
-Besides drawing graphics on a window, we often want to draw text. Text strings have two major properties: the characters to be drawn and the font with which they are drawn. In order to draw text, we need to first request the X server to load a font. We then assign a font to a Graphic Context, and finally, we draw the text in a window using the Graphic Context.
+除了在窗口上绘制图形外，我们通常还希望绘制文本。 文本字符串具有两个主要属性：要绘制的字符和绘制它们的字体。
+为了绘制文本，我们需要首先请求X服务器加载字体。 然后，将字体分配给图形上下文，最后，使用图形上下文在窗口中绘制文本。
 
-=== The Font structure
-In order to support flexible fonts, a font type is defined, and guess what, it's an Id:
+=== 字体结构体
+为了支持灵活的字体，定义了一种字体类型，猜测一下，它应该是一个ID：
 [source,c]
 ....
 typedef uint32_t xcb_font_t;
 ....
-
-A font id is passed to several functions that handle fonts selection and text drawing. We ask the X server to attribute an Id to our font with the function:
+字体ID会传递给处理字体选择和文本绘制的多个函数。我们要求X服务器使用以下函数将Id赋予给我们的字体：
 [source,c]
 ....
 xcb_font_t xcb_generate_id (xcb_connection_t *c);
 ....
 
-=== Opening a Font
-To open a font, we use the following function:
+=== 打开一个字体
+我们使用下面的这个函数来打开字体：
 [source,c]
 ....
 xcb_void_cookie_t xcb_open_font (xcb_connection_t *c,
@@ -27,10 +27,10 @@ xcb_void_cookie_t xcb_open_font (xcb_connection_t *c,
                                     const char       *name);
 ....
 
-The fid parameter is the font Id defined by xcb_generate_id() (see above). The name parameter is the name of the font you want to open. Use the command xlsfonts in a terminal to know which are the fonts available on your computer. The parameter name_len is the length of the name of the font (given by strlen()).
+`fid` 参数是由 `xcb_generate_id()` 定义的字体ID（请参见上面）。`name` 参数是您要打开的字体的名称。 在终端中使用命令 `xlsfonts` 可以了解计算机上可用的字体。参数 `name_len` 是字体名称的长度（由 `strlen()` 给出）。
 
-=== Assigning a Font to a Graphic Context
-Once a font is opened, you have to create a Graphic Context that will contain the information about the color of the foreground and the background used when you draw a text in a Drawable. Here is an example of a Graphic Context that will allow us to draw an opened font with a black foreground and a white background:
+=== 将字体分配给图形上下文
+打开字体后，您必须创建一个图形上下文，其中包含有关在可绘制对象中绘制文本时使用的前景色和背景色的信息。 这是一个图形上下文的示例，它使我们能够绘制带有黑色前景和白色背景的打开的字体：
 
 [source,c]
 ....
@@ -56,8 +56,8 @@ xcb_create_gc (c, gc, window, mask, value_list);
 xcb_close_font (c, font);
 ....
 
-=== Drawing text in a drawable
-To draw a text in a drawable, we use the following function:
+=== 在可绘制图形中绘制文本
+为了在可绘制对象中绘制文本，我们需要使用下面的这个函数：
 [source,c]
 ....
     xcb_void_cookie_t xcb_image_text_8 (xcb_connection_t *c,
@@ -69,10 +69,10 @@ To draw a text in a drawable, we use the following function:
                                         const char       *string);
 ....
 
-The string parameter is the text to draw. The location of the drawing is given by the parameters x and y. The base line of the text is exactly the parameter y.
+字符串参数是要绘制的文本。绘制的位置由参数x和y给出。文本的基线恰好是参数y。
 
-=== Complete example
-This example draw a text at 10 pixels (for the base line) of the bottom of a window. Pressing the Esc key exits the program.
+=== 完整的例子
+本示例在窗口底部的10个像素处（相对于基线）绘制文本。按Esc键退出程序。
 [source,c]
 ....
 #include <stdlib.h>
