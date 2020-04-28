@@ -38,7 +38,6 @@ XCB_PROP_MODE_APPEND
 
 === 设置窗口名称和图标名称
 我们要做的第一件事是为我们的窗口设置名称。 这是使用 `xcb_change_property()` 函数完成的。 窗口管理器将会把此名称作为窗口的标题（在标题栏中），在任务列表等。用于设置窗口名称的属性atom为 `XCB_ATOM_WM_NAME` （对于图标化窗口，则为XCB_ATOM_WM_ICON_NAME），其类型为XCB_ATOM_STRING。 这是使用的示例：
-The first thing we want to do would be to set the name for our window. This is done using the xcb_change_property() function. This name may be used by the window manager as the title of the window (in the title bar), in a task list, etc. The property atom to use to set the name of a window is XCB_ATOM_WM_NAME (and XCB_ATOM_WM_ICON_NAME for the iconified window) and its type is XCB_ATOM_STRING. Here is an example of utilization:
 [source,c]
 ....
 #include <string.h>
@@ -121,22 +120,25 @@ gcc prog.c -o prog `pkg-config --cflags --libs xcb-atom`
 以便程序编译正常。
 
 == 简单的窗口操作
-One more thing we can do to our window is manipulate them on the screen (resize them, move them, raise or lower them, iconify them, and so on). Some window operations functions are supplied by XCB for this purpose.
+我们能对窗口做的另一件事是在屏幕上对窗口进行操作（调整它们的大小，移动它们，升高或降低它们，图标化等等）。
+XCB为此提供了一些窗口操作功能。
 
-=== 绘制窗口与窗口绘制取消
-The first pair of operations we can apply on a window is mapping it, or un-mapping it. Mapping a window causes the window to appear on the screen, as we have seen in our simple window program example. Un-mapping it causes it to be removed from the screen (although the window as a logical entity still exists). This gives the effect of making a window hidden (unmapped) and shown again (mapped). For example, if we have a dialog box window in our program, instead of creating it every time the user asks to open it, we can create the window once, in an un-mapped mode, and when the user asks to open it, we simply map the window on the screen. When the user clicked the 'OK' or 'Cancel' button, we simply un-map the window. This is much faster than creating and destroying the window, however, the cost is wasted resources, both on the client side, and on the X server side.
+=== 窗口映射与窗口取消映射
+我们可以在窗口上执行的第一对操作是对其进行映射或取消映射。映射窗口会使窗口显示在屏幕上，就像我们在简单的窗口程序示例中看到的那样。
+取消映射会导致将其从屏幕上删除（尽管作为逻辑实体的窗口仍然存在）。这具有使窗口隐藏（未映射）并再次显示（映射）的效果。
+例如，如果我们的程序中有一个对话框窗口，而不是每次用户要求打开它时都创建一个对话框窗口，我们可以以非映射模式创建一次该窗口，并且当用户要求打开它时， 我们只是将窗口映射到屏幕上。
+当用户单击“确定”或“取消”按钮时，我们只需取消。
 
-To map a window, you use the following function:
+要映射窗口，我们可以使用下面的这个函数：
 
 [source,c]
 ....
 xcb_void_cookie_t xcb_map_window (xcb_connection_t *c,
                                     xcb_window_t      window );
 ....
+上面的例子就是一个很简单的使用示例。映射操作会导致一个暴露事件发送到我们的应用程序上，除非这个窗口完全被其他的窗口覆盖住了。
 
-To have a simple example, see the example above. The mapping operation will cause an Expose event to be sent to our application, unless the window is completely covered by other windows.
-
-Un-mapping a window is also simple. You use the function
+取消窗口映射也是非常简单的。你可以使用下面的这个函数：
 
 [source,c]
 ....
@@ -144,7 +146,7 @@ xcb_void_cookie_t xcb_unmap_window (xcb_connection_t *c,
                                     xcb_window_t      window );
 ....
 
-The utilization of this function is the same as xcb_map_window().
+这个函数的使用方式跟 `xcb_map_window()` 是一样的。
 
 === 配置窗口
 As we have seen when we have created our first window, in the X Events subsection, we can set some attributes for the window (that is, the position, the size, the events the window will receive, etc). If we want to modify them, but the window is already created, we can change them by using the following function:
