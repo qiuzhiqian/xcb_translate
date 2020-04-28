@@ -1,493 +1,628 @@
-= Xlib to xcb translation guide
+= Translation of basic Xlib functions and macros
+:toc:
+:numbered:
 
-18. Translation of basic Xlib functions and macros
 The problem when you want to port an Xlib program to XCB is that you don't know if the Xlib function that you want to "translate" is a X Window one or an Xlib macro. In that section, we describe a way to translate the usual functions or macros that Xlib provides. It's usually just a member of a structure.
 
-18.1 Members of the Display structure
+== Members of the Display structure
+
 In this section, we look at how to translate the macros that return some members of the Display structure. They are obtained by using a function that requires a xcb_connection_t * or a member of the xcb_setup_t structure (via the function xcb_get_setup), or a function that requires that structure.
 
-18.1.1 ConnectionNumber
+=== ConnectionNumber
+
 This number is the file descriptor that connects the client to the server. You just have to use that function:
+[source,c]
+....
+int xcb_get_file_descriptor (xcb_connection_t *c);
+....
 
-              int xcb_get_file_descriptor (xcb_connection_t *c);
-18.1.2 DefaultScreen
+=== DefaultScreen
+
 That number is not stored by XCB. It is returned in the second parameter of the function xcb_connect. Hence, you have to store it yourself if you want to use it. Then, to get the xcb_screen_t structure, you have to iterate on the screens. The equivalent function of the Xlib's ScreenOfDisplay function can be found below. This is also provided in the xcb_aux_t library as xcb_aux_get_screen(). OK, here is the small piece of code to get that number:
+[source,c]
+....
+xcb_connection_t *c;
+int               screen_default_nbr;
 
-              xcb_connection_t *c;
-              int               screen_default_nbr;
+/* you pass the name of the display you want to xcb_connect_t */
 
-              /* you pass the name of the display you want to xcb_connect_t */
+c = xcb_connect (display_name, &screen_default_nbr);
 
-              c = xcb_connect (display_name, &screen_default_nbr);
+/* screen_default_nbr contains now the number of the default screen */
+....
 
-              /* screen_default_nbr contains now the number of the default screen */
-18.1.3 QLength
+=== QLength
+
 Not documented yet.
 
 However, this points out a basic difference in philosophy between Xlib and XCB. Xlib has several functions for filtering and manipulating the incoming and outgoing X message queues. XCB wishes to hide this as much as possible from the user, which allows for more freedom in implementation strategies.
+              
+=== ScreenCount
 
-18.1.4 ScreenCount
 You get the count of screens with the functions xcb_get_setup and xcb_setup_roots_iterator (if you need to iterate):
+[source,c]
+....
+xcb_connection_t *c;
+int               screen_count;
 
-              xcb_connection_t *c;
-              int               screen_count;
+/* you init the connection */
 
-              /* you init the connection */
+screen_count = xcb_setup_roots_iterator (xcb_get_setup (c)).rem;
 
-              screen_count = xcb_setup_roots_iterator (xcb_get_setup (c)).rem;
+/* screen_count contains now the count of screens */
+....
 
-              /* screen_count contains now the count of screens */
 If you don't want to iterate over the screens, a better way to get that number is to use xcb_setup_roots_length_t:
+[source,c]
+....
+xcb_connection_t *c;
+int               screen_count;
 
-              xcb_connection_t *c;
-              int               screen_count;
+/* you init the connection */
 
-              /* you init the connection */
+screen_count = xcb_setup_roots_length (xcb_get_setup (c));
 
-              screen_count = xcb_setup_roots_length (xcb_get_setup (c));
+/* screen_count contains now the count of screens */
+....
 
-              /* screen_count contains now the count of screens */
-18.1.5 ServerVendor
+=== ServerVendor
+
 You get the name of the vendor of the server hardware with the functions xcb_get_setup and xcb_setup_vendor. Beware that, unlike Xlib, the string returned by XCB is not necessarily null-terminaled:
+[source,c]
+....
+xcb_connection_t *c;
+char             *vendor = NULL;
+int               length;
 
-              xcb_connection_t *c;
-              char             *vendor = NULL;
-              int               length;
+/* you init the connection */
+length = xcb_setup_vendor_length (xcb_get_setup (c));
+vendor = (char *)malloc (length + 1);
+if (vendor)
+  memcpy (vendor, xcb_setup_vendor (xcb_get_setup (c)), length);
+vendor[length] = '\0';
 
-              /* you init the connection */
-              length = xcb_setup_vendor_length (xcb_get_setup (c));
-              vendor = (char *)malloc (length + 1);
-              if (vendor)
-                memcpy (vendor, xcb_setup_vendor (xcb_get_setup (c)), length);
-              vendor[length] = '\0';
+/* vendor contains now the name of the vendor. Must be freed when not used anymore */
+....
 
-              /* vendor contains now the name of the vendor. Must be freed when not used anymore */
-18.1.6 ProtocolVersion
+=== ProtocolVersion
+
 You get the major version of the protocol in the xcb_setup_t structure, with the function xcb_get_setup:
+[source,c]
+....
+xcb_connection_t *c;
+uint16_t          protocol_major_version;
 
-              xcb_connection_t *c;
-              uint16_t          protocol_major_version;
+/* you init the connection */
 
-              /* you init the connection */
+protocol_major_version = xcb_get_setup (c)->protocol_major_version;
 
-              protocol_major_version = xcb_get_setup (c)->protocol_major_version;
+/* protocol_major_version contains now the major version of the protocol */
+....
 
-              /* protocol_major_version contains now the major version of the protocol */
-18.1.7 ProtocolRevision
+=== ProtocolRevision
+
 You get the minor version of the protocol in the xcb_setup_t structure, with the function xcb_get_setup:
+[source,c]
+....
+xcb_connection_t *c;
+uint16_t          protocol_minor_version;
 
-              xcb_connection_t *c;
-              uint16_t          protocol_minor_version;
+/* you init the connection */
 
-              /* you init the connection */
+protocol_minor_version = xcb_get_setup (c)->protocol_minor_version;
 
-              protocol_minor_version = xcb_get_setup (c)->protocol_minor_version;
+/* protocol_minor_version contains now the minor version of the protocol */
+....
 
-              /* protocol_minor_version contains now the minor version of the protocol */
-18.1.8 VendorRelease
+=== VendorRelease
+
 You get the number of the release of the server hardware in the xcb_setup_t structure, with the function xcb_get_setup:
+[source,c]
+....
+xcb_connection_t *c;
+uint32_t          release_number;
 
-              xcb_connection_t *c;
-              uint32_t          release_number;
+/* you init the connection */
 
-              /* you init the connection */
+release_number = xcb_get_setup (c)->release_number;
 
-              release_number = xcb_get_setup (c)->release_number;
+/* release_number contains now the number of the release of the server hardware */
+....
 
-              /* release_number contains now the number of the release of the server hardware */
-18.1.9. DisplayString
+=== DisplayString
+
 The name of the display is not stored in XCB. You have to store it by yourself.
+           
+=== BitmapUnit
 
-18.1.10 BitmapUnit
 You get the bitmap scanline unit in the xcb_setup_t structure, with the function xcb_get_setup:
+[source,c]
+....
+xcb_connection_t *c;
+uint8_t           bitmap_format_scanline_unit;
 
-              xcb_connection_t *c;
-              uint8_t           bitmap_format_scanline_unit;
+/* you init the connection */
 
-              /* you init the connection */
+bitmap_format_scanline_unit = xcb_get_setup (c)->bitmap_format_scanline_unit;
 
-              bitmap_format_scanline_unit = xcb_get_setup (c)->bitmap_format_scanline_unit;
+/* bitmap_format_scanline_unit contains now the bitmap scanline unit */
+....
 
-              /* bitmap_format_scanline_unit contains now the bitmap scanline unit */
-18.1.11 BitmapBitOrder
+=== BitmapBitOrder
+
 You get the bitmap bit order in the xcb_setup_t structure, with the function xcb_get_setup:
+[source,c]
+....
+xcb_connection_t *c;
+uint8_t           bitmap_format_bit_order;
 
-              xcb_connection_t *c;
-              uint8_t           bitmap_format_bit_order;
+/* you init the connection */
 
-              /* you init the connection */
+bitmap_format_bit_order = xcb_get_setup (c)->bitmap_format_bit_order;
 
-              bitmap_format_bit_order = xcb_get_setup (c)->bitmap_format_bit_order;
+/* bitmap_format_bit_order contains now the bitmap bit order */
+....
 
-              /* bitmap_format_bit_order contains now the bitmap bit order */
-18.1.12 BitmapPad
+=== BitmapPad
+
 You get the bitmap scanline pad in the xcb_setup_t structure, with the function xcb_get_setup:
+[source,c]
+....
+xcb_connection_t *c;
+uint8_t           bitmap_format_scanline_pad;
 
-              xcb_connection_t *c;
-              uint8_t           bitmap_format_scanline_pad;
+/* you init the connection */
 
-              /* you init the connection */
+bitmap_format_scanline_pad = xcb_get_setup (c)->bitmap_format_scanline_pad;
 
-              bitmap_format_scanline_pad = xcb_get_setup (c)->bitmap_format_scanline_pad;
+/* bitmap_format_scanline_pad contains now the bitmap scanline pad */
+....
 
-              /* bitmap_format_scanline_pad contains now the bitmap scanline pad */
-18.1.13 ImageByteOrder
+=== ImageByteOrder
+
 You get the image byte order in the xcb_setup_t structure, with the function xcb_get_setup:
+[source,c]
+....
+xcb_connection_t *c;
+uint8_t           image_byte_order;
 
-              xcb_connection_t *c;
-              uint8_t           image_byte_order;
+/* you init the connection */
 
-              /* you init the connection */
+image_byte_order = xcb_get_setup (c)->image_byte_order;
 
-              image_byte_order = xcb_get_setup (c)->image_byte_order;
+/* image_byte_order contains now the image byte order */
+....
 
-              /* image_byte_order contains now the image byte order */
-18.2 ScreenOfDisplay related functions
+== ScreenOfDisplay related functions
+
 in Xlib, ScreenOfDisplay returns a Screen structure that contains several characteristics of your screen. XCB has a similar structure (xcb_screen_t), but the way to obtain it is a bit different. With Xlib, you just provide the number of the screen and you grab it from an array. With XCB, you iterate over all the screens to obtain the one you want. The complexity of this operation is O(n). So the best is to store this structure if you use it often. See screen_of_display just below.
 
 Xlib provides generally two functions to obtain the characteristics related to the screen. One with the display and the number of the screen, which calls ScreenOfDisplay, and the other that uses the Screen structure. This might be a bit confusing. As mentioned above, with XCB, it is better to store the xcb_screen_t structure. Then, you have to read the members of this structure. That's why the Xlib functions are put by pairs (or more) as, with XCB, you will use the same code.
 
-18.2.1 ScreenOfDisplay
+=== ScreenOfDisplay
+
 This function returns the Xlib Screen structure. With XCB, you iterate over all the screens and once you get the one you want, you return it:
 
-              xcb_screen_t *screen_of_display (xcb_connection_t *c,
-                                               int               screen)
-              {
-                xcb_screen_iterator_t iter;
+[source,c]
+....
+xcb_screen_t *screen_of_display (xcb_connection_t *c,
+                                  int               screen)
+{
+  xcb_screen_iterator_t iter;
 
-                iter = xcb_setup_roots_iterator (xcb_get_setup (c));
-                for (; iter.rem; --screen, xcb_screen_next (&iter))
-                  if (screen == 0)
-                    return iter.data;
+  iter = xcb_setup_roots_iterator (xcb_get_setup (c));
+  for (; iter.rem; --screen, xcb_screen_next (&iter))
+    if (screen == 0)
+      return iter.data;
 
-                return NULL;
-              }
+  return NULL;
+}
+....
+
 As mentioned above, you might want to store the value returned by this function.
 
 All the functions below will use the result of that function, as they just grab a specific member of the xcb_screen_t structure.
 
-18.2.2 DefaultScreenOfDisplay
+=== DefaultScreenOfDisplay
+
 It is the default screen that you obtain when you connect to the X server. It suffices to call the screen_of_display function above with the connection and the number of the default screen.
+[source,c]
+....
+xcb_connection_t *c;
+int               screen_default_nbr;
+xcb_screen_t     *default_screen;  /* the returned default screen */
 
-              xcb_connection_t *c;
-              int               screen_default_nbr;
-              xcb_screen_t     *default_screen;  /* the returned default screen */
+/* you pass the name of the display you want to xcb_connect_t */
 
-              /* you pass the name of the display you want to xcb_connect_t */
+c = xcb_connect (display_name, &screen_default_nbr);
+default_screen = screen_of_display (c, screen_default_nbr);
 
-              c = xcb_connect (display_name, &screen_default_nbr);
-              default_screen = screen_of_display (c, screen_default_nbr);
+/* default_screen contains now the default root window, or a NULL window if no screen is found */
+....
 
-              /* default_screen contains now the default root window, or a NULL window if no screen is found */
-18.2.3 RootWindow / RootWindowOfScreen
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              xcb_window_t      root_window = { 0 };  /* the returned window */
+=== RootWindow / RootWindowOfScreen
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+xcb_window_t      root_window = { 0 };  /* the returned window */
 
-              /* you init the connection and screen_nbr */
+/* you init the connection and screen_nbr */
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                root_window = screen->root;
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  root_window = screen->root;
 
-              /* root_window contains now the root window, or a NULL window if no screen is found */
-18.2.4 DefaultRootWindow
+/* root_window contains now the root window, or a NULL window if no screen is found */
+....
+
+=== DefaultRootWindow
+
 It is the root window of the default screen. So, you call ScreenOfDisplay with the default screen number and you get the root window as above:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_default_nbr;
+xcb_window_t      root_window = { 0 };  /* the returned root window */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_default_nbr;
-              xcb_window_t      root_window = { 0 };  /* the returned root window */
+/* you pass the name of the display you want to xcb_connect_t */
 
-              /* you pass the name of the display you want to xcb_connect_t */
+c = xcb_connect (display_name, &screen_default_nbr);
+screen = screen_of_display (c, screen_default_nbr);
+if (screen)
+  root_window = screen->root;
 
-              c = xcb_connect (display_name, &screen_default_nbr);
-              screen = screen_of_display (c, screen_default_nbr);
-              if (screen)
-                root_window = screen->root;
+/* root_window contains now the default root window, or a NULL window if no screen is found */
+....
 
-              /* root_window contains now the default root window, or a NULL window if no screen is found */
-18.2.5 DefaultVisual / DefaultVisualOfScreen
+=== DefaultVisual / DefaultVisualOfScreen
+
 While a Visual is, in Xlib, a structure, in XCB, there are two types: xcb_visualid_t, which is the Id of the visual, and xcb_visualtype_t, which corresponds to the Xlib Visual. To get the Id of the visual of a screen, just get the root_visual member of a xcb_screen_t:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+xcb_visualid_t    root_visual = { 0 };    /* the returned visual Id */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              xcb_visualid_t    root_visual = { 0 };    /* the returned visual Id */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  root_visual = screen->root_visual;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                root_visual = screen->root_visual;
+/* root_visual contains now the value of the Id of the visual, or a NULL visual if no screen is found */
+....
 
-              /* root_visual contains now the value of the Id of the visual, or a NULL visual if no screen is found */
 To get the xcb_visualtype_t structure, it's a bit less easy. You have to get the xcb_screen_t structure that you want, get its root_visual member, then iterate over the xcb_depth_ts and the xcb_visualtype_ts, and compare the xcb_visualid_t of these xcb_visualtype_ts: with root_visual:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+xcb_visualid_t    root_visual = { 0 };
+xcb_visualtype_t  *visual_type = NULL;    /* the returned visual type */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              xcb_visualid_t    root_visual = { 0 };
-              xcb_visualtype_t  *visual_type = NULL;    /* the returned visual type */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen) {
+  xcb_depth_iterator_t depth_iter;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen) {
-                xcb_depth_iterator_t depth_iter;
+  depth_iter = xcb_screen_allowed_depths_iterator (screen);
+  for (; depth_iter.rem; xcb_depth_next (&depth_iter)) {
+    xcb_visualtype_iterator_t visual_iter;
 
-                depth_iter = xcb_screen_allowed_depths_iterator (screen);
-                for (; depth_iter.rem; xcb_depth_next (&depth_iter)) {
-                  xcb_visualtype_iterator_t visual_iter;
+    visual_iter = xcb_depth_visuals_iterator (depth_iter.data);
+    for (; visual_iter.rem; xcb_visualtype_next (&visual_iter)) {
+      if (screen->root_visual == visual_iter.data->visual_id) {
+        visual_type = visual_iter.data;
+        break;
+      }
+    }
+  }
+}
 
-                  visual_iter = xcb_depth_visuals_iterator (depth_iter.data);
-                  for (; visual_iter.rem; xcb_visualtype_next (&visual_iter)) {
-                    if (screen->root_visual == visual_iter.data->visual_id) {
-                      visual_type = visual_iter.data;
-                      break;
-                    }
-                  }
-                }
-              }
+/* visual_type contains now the visual structure, or a NULL visual structure if no screen is found */
+....
 
-              /* visual_type contains now the visual structure, or a NULL visual structure if no screen is found */
-18.2.6 DefaultGC / DefaultGCOfScreen
+=== DefaultGC / DefaultGCOfScreen
+
 This default Graphic Context is just a newly created Graphic Context, associated to the root window of a xcb_screen_t, using the black white pixels of that screen:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+xcb_gcontext_t    gc = { 0 };    /* the returned default graphic context */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              xcb_gcontext_t    gc = { 0 };    /* the returned default graphic context */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen) {
+  xcb_drawable_t draw;
+  uint32_t       mask;
+  uint32_t       values[2];
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen) {
-                xcb_drawable_t draw;
-                uint32_t       mask;
-                uint32_t       values[2];
+  gc = xcb_generate_id (c);
+  draw = screen->root;
+  mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND;
+  values[0] = screen->black_pixel;
+  values[1] = screen->white_pixel;
+  xcb_create_gc (c, gc, draw, mask, values);
+}
 
-                gc = xcb_generate_id (c);
-                draw = screen->root;
-                mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND;
-                values[0] = screen->black_pixel;
-                values[1] = screen->white_pixel;
-                xcb_create_gc (c, gc, draw, mask, values);
-              }
+/* gc contains now the default graphic context */
+....
 
-              /* gc contains now the default graphic context */
-18.2.7 BlackPixel / BlackPixelOfScreen
+=== BlackPixel / BlackPixelOfScreen
+
 It is the Id of the black pixel, which is in the structure of an xcb_screen_t.
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint32_t          black_pixel = 0;    /* the returned black pixel */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint32_t          black_pixel = 0;    /* the returned black pixel */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  black_pixel = screen->black_pixel;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                black_pixel = screen->black_pixel;
+/* black_pixel contains now the value of the black pixel, or 0 if no screen is found */
+....
 
-              /* black_pixel contains now the value of the black pixel, or 0 if no screen is found */
-18.2.8 WhitePixel / WhitePixelOfScreen
+=== WhitePixel / WhitePixelOfScreen
+
 It is the Id of the white pixel, which is in the structure of an xcb_screen_t.
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint32_t          white_pixel = 0;    /* the returned white pixel */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint32_t          white_pixel = 0;    /* the returned white pixel */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  white_pixel = screen->white_pixel;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                white_pixel = screen->white_pixel;
+/* white_pixel contains now the value of the white pixel, or 0 if no screen is found */
+....
 
-              /* white_pixel contains now the value of the white pixel, or 0 if no screen is found */
-18.2.9 DisplayWidth / WidthOfScreen
+=== DisplayWidth / WidthOfScreen
+
 It is the width in pixels of the screen that you want, and which is in the structure of the corresponding xcb_screen_t.
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint16_t          width_in_pixels = 0;    /* the returned width in pixels */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint16_t          width_in_pixels = 0;    /* the returned width in pixels */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  width_in_pixels = screen->width_in_pixels;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                width_in_pixels = screen->width_in_pixels;
+/* width_in_pixels contains now the width in pixels, or 0 if no screen is found */
+....
 
-              /* width_in_pixels contains now the width in pixels, or 0 if no screen is found */
-18.2.10 DisplayHeight / HeightOfScreen
+=== DisplayHeight / HeightOfScreen
+
 It is the height in pixels of the screen that you want, and which is in the structure of the corresponding xcb_screen_t.
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint16_t          height_in_pixels = 0;    /* the returned height in pixels */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint16_t          height_in_pixels = 0;    /* the returned height in pixels */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  height_in_pixels = screen->height_in_pixels;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                height_in_pixels = screen->height_in_pixels;
+/* height_in_pixels contains now the height in pixels, or 0 if no screen is found */
+....
 
-              /* height_in_pixels contains now the height in pixels, or 0 if no screen is found */
-18.2.11 DisplayWidthMM / WidthMMOfScreen
+=== DisplayWidthMM / WidthMMOfScreen
+
 It is the width in millimeters of the screen that you want, and which is in the structure of the corresponding xcb_screen_t.
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint32_t          width_in_millimeters = 0;    /* the returned width in millimeters */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint32_t          width_in_millimeters = 0;    /* the returned width in millimeters */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  width_in_millimeters = screen->width_in_millimeters;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                width_in_millimeters = screen->width_in_millimeters;
+/* width_in_millimeters contains now the width in millimeters, or 0 if no screen is found */
+....
 
-              /* width_in_millimeters contains now the width in millimeters, or 0 if no screen is found */
-18.2.12 DisplayHeightMM / HeightMMOfScreen
+=== DisplayHeightMM / HeightMMOfScreen
+
 It is the height in millimeters of the screen that you want, and which is in the structure of the corresponding xcb_screen_t.
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint32_t          height_in_millimeters = 0;    /* the returned height in millimeters */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint32_t          height_in_millimeters = 0;    /* the returned height in millimeters */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  height_in_millimeters = screen->height_in_millimeters;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                height_in_millimeters = screen->height_in_millimeters;
+/* height_in_millimeters contains now the height in millimeters, or 0 if no screen is found */
+....
 
-              /* height_in_millimeters contains now the height in millimeters, or 0 if no screen is found */
-18.2.13 DisplayPlanes / DefaultDepth / DefaultDepthOfScreen / PlanesOfScreen
+=== DisplayPlanes / DefaultDepth / DefaultDepthOfScreen / PlanesOfScreen
+
 It is the depth (in bits) of the root window of the screen. You get it from the xcb_screen_t structure.
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint8_t           root_depth = 0;  /* the returned depth of the root window */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint8_t           root_depth = 0;  /* the returned depth of the root window */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  root_depth = screen->root_depth;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                root_depth = screen->root_depth;
+/* root_depth contains now the depth of the root window, or 0 if no screen is found */
+....
 
-              /* root_depth contains now the depth of the root window, or 0 if no screen is found */
-18.2.14 DefaultColormap / DefaultColormapOfScreen
+=== DefaultColormap / DefaultColormapOfScreen
+
 This is the default colormap of the screen (and not the (default) colormap of the default screen !). As usual, you get it from the xcb_screen_t structure:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+xcb_colormap_t    default_colormap = { 0 };  /* the returned default colormap */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              xcb_colormap_t    default_colormap = { 0 };  /* the returned default colormap */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  default_colormap = screen->default_colormap;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                default_colormap = screen->default_colormap;
+/* default_colormap contains now the default colormap, or a NULL colormap if no screen is found */
+....
 
-              /* default_colormap contains now the default colormap, or a NULL colormap if no screen is found */
-18.2.15 MinCmapsOfScreen
+=== MinCmapsOfScreen
+
 You get the minimum installed colormaps in the xcb_screen_t structure:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint16_t          min_installed_maps = 0;  /* the returned minimum installed colormaps */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint16_t          min_installed_maps = 0;  /* the returned minimum installed colormaps */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  min_installed_maps = screen->min_installed_maps;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                min_installed_maps = screen->min_installed_maps;
+/* min_installed_maps contains now the minimum installed colormaps, or 0 if no screen is found */
+....
 
-              /* min_installed_maps contains now the minimum installed colormaps, or 0 if no screen is found */
-18.2.16 MaxCmapsOfScreen
+=== MaxCmapsOfScreen
+
 You get the maximum installed colormaps in the xcb_screen_t structure:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint16_t          max_installed_maps = 0;  /* the returned maximum installed colormaps */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint16_t          max_installed_maps = 0;  /* the returned maximum installed colormaps */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  max_installed_maps = screen->max_installed_maps;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                max_installed_maps = screen->max_installed_maps;
+/* max_installed_maps contains now the maximum installed colormaps, or 0 if no screen is found */
+....
 
-              /* max_installed_maps contains now the maximum installed colormaps, or 0 if no screen is found */
-18.2.17 DoesSaveUnders
+=== DoesSaveUnders
+
 You know if save_unders is set, by looking in the xcb_screen_t structure:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint8_t           save_unders = 0;  /* the returned value of save_unders */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint8_t           save_unders = 0;  /* the returned value of save_unders */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  save_unders = screen->save_unders;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                save_unders = screen->save_unders;
+/* save_unders contains now the value of save_unders, or FALSE if no screen is found */
+....
 
-              /* save_unders contains now the value of save_unders, or FALSE if no screen is found */
-18.2.18 DoesBackingStore
+=== DoesBackingStore
+
 You know the value of backing_stores, by looking in the xcb_screen_t structure:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint8_t           backing_stores = 0;  /* the returned value of backing_stores */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint8_t           backing_stores = 0;  /* the returned value of backing_stores */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  backing_stores = screen->backing_stores;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                backing_stores = screen->backing_stores;
+/* backing_stores contains now the value of backing_stores, or FALSE if no screen is found */
+....
 
-              /* backing_stores contains now the value of backing_stores, or FALSE if no screen is found */
-18.2.19 EventMaskOfScreen
+=== EventMaskOfScreen
+
 To get the current input masks, you look in the xcb_screen_t structure:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_screen_t     *screen;
+int               screen_nbr;
+uint32_t          current_input_masks = 0;  /* the returned value of current input masks */
 
-              xcb_connection_t *c;
-              xcb_screen_t     *screen;
-              int               screen_nbr;
-              uint32_t          current_input_masks = 0;  /* the returned value of current input masks */
+/* you init the connection and screen_nbr */
 
-              /* you init the connection and screen_nbr */
+screen = screen_of_display (c, screen_nbr);
+if (screen)
+  current_input_masks = screen->current_input_masks;
 
-              screen = screen_of_display (c, screen_nbr);
-              if (screen)
-                current_input_masks = screen->current_input_masks;
+/* current_input_masks contains now the value of the current input masks, or FALSE if no screen is found */
+....
 
-              /* current_input_masks contains now the value of the current input masks, or FALSE if no screen is found */
-18.3 Miscellaneous macros
-18.3.1 DisplayOfScreen
+== Miscellaneous macros
+
+=== DisplayOfScreen
+
 in Xlib, the Screen structure stores its associated Display structure. This is not the case in the X Window protocol, hence, it's also not the case in XCB. So you have to store it by yourself.
 
-18.3.2 DisplayCells / CellsOfScreen
+=== DisplayCells / CellsOfScreen
+
 To get the colormap entries, you look in the xcb_visualtype_t structure, that you grab like here:
+[source,c]
+....
+xcb_connection_t *c;
+xcb_visualtype_t *visual_type;
+uint16_t          colormap_entries = 0;  /* the returned value of the colormap entries */
 
-              xcb_connection_t *c;
-              xcb_visualtype_t *visual_type;
-              uint16_t          colormap_entries = 0;  /* the returned value of the colormap entries */
+/* you init the connection and visual_type */
 
-              /* you init the connection and visual_type */
+if (visual_type)
+  colormap_entries = visual_type->colormap_entries;
 
-              if (visual_type)
-                colormap_entries = visual_type->colormap_entries;
-
-              /* colormap_entries contains now the value of the colormap entries, or FALSE if no screen is found */
-Links: tutorial
-Last edited Mon 30 Jun 2008 09:15:50 PM UTC
+/* colormap_entries contains now the value of the colormap entries, or FALSE if no screen is found */
+....
