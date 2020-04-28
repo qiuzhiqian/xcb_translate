@@ -320,36 +320,41 @@ typedef xcb_enter_notify_event_t xcb_leave_notify_event_t;
 ....
 
 ==== 键盘按键聚焦
-There may be many windows on a screen, but only a single keyboard attached to them. How does the X server then know which window should be sent a given keyboard input ? This is done using the keyboard focus. Only a single window on the screen may have the keyboard focus at a given time. There is a XCB function that allows a program to set the keyboard focus to a given window. The user can usually set the keyboard focus using the window manager (often by clicking on the title bar of the desired window). Once our window has the keyboard focus, every key press or key release will cause an event to be sent to our program (if it registered for these event types...).
+屏幕上可能有许多窗口，但只有一个键盘与之相连。 X服务器如何知道给定的键盘输入应该向哪个窗口发送？ 这是使用键盘聚焦完成的。 在给定的时间，屏幕上只有一个窗口可以使键盘聚焦。 有一个XCB功能，允许程序将键盘焦点设置到给定的窗口。 用户通常可以使用窗口管理器设置键盘焦点（通常通过单击所需窗口的标题栏）。 一旦我们的窗口具有键盘焦点，每次按键或释放按键都会将一个事件发送到我们的程序（如果它已注册了这些事件类型...）。
 
 ==== 键盘按键按下和释放事件
 If a window controlled by our program currently holds the keyboard focus, it can receive key press and key release events. So, we should add one (or more) of the following masks when we create our window:
-
-    XCB_EVENT_MASK_KEY_PRESS     // key was pressed while any of our controlled windows had the keyboard focus
-    XCB_EVENT_MASK_KEY_RELEASE   // key was released while any of our controlled windows had the keyboard focus
+[source,c]
+....
+XCB_EVENT_MASK_KEY_PRESS     // key was pressed while any of our controlled windows had the keyboard focus
+XCB_EVENT_MASK_KEY_RELEASE   // key was released while any of our controlled windows had the keyboard focus
+....
 These generate events of the same type, which goes by two names:
+[source,c]
+....
+typedef struct {
+    uint8_t         response_type; /* The type of the event */
+    xcb_keycode_t   detail;        /* the physical key on the keyboard */
+    uint16_t        sequence;
+    xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
+    xcb_window_t    root;
+    xcb_window_t    event;
+    xcb_window_t    child;
+    int16_t         root_x;
+    int16_t         root_y;
+    int16_t         event_x;
+    int16_t         event_y;
+    uint16_t        state;
+    uint8_t         same_screen;
+} xcb_key_press_event_t;
 
-    typedef struct {
-        uint8_t         response_type; /* The type of the event */
-        xcb_keycode_t   detail;        /* the physical key on the keyboard */
-        uint16_t        sequence;
-        xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
-        xcb_window_t    root;
-        xcb_window_t    event;
-        xcb_window_t    child;
-        int16_t         root_x;
-        int16_t         root_y;
-        int16_t         event_x;
-        int16_t         event_y;
-        uint16_t        state;
-        uint8_t         same_screen;
-    } xcb_key_press_event_t;
+typedef xcb_key_press_event_t  xcb_key_release_event_t;
+....
 
-    typedef xcb_key_press_event_t  xcb_key_release_event_t;
-TODO: Talk about getting the ASCII code from the key code.
+TODO: 讨论从按键代码获取ASCII码。
 
 === X事件: 一个完整的示例
-As an example for handling events, we show a program that creates a window, enters an events loop and checks for all the events described above, and writes on the terminal the relevant characteristics of the event. With this code, it should be easy to add drawing operations, like those which have been described above.
+作为演示处理事件，我们写了一个程序，该程序创建一个窗口，进入事件循环并检查上述所有事件，并在终端上编写事件的相关特征。 使用此代码，应该很容易添加绘图操作，就像上面已经描述的那样。
 [source,c]
 ....
 #include <stdlib.h>

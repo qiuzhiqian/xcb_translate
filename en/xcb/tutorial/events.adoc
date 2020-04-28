@@ -294,28 +294,33 @@ There may be many windows on a screen, but only a single keyboard attached to th
 
 ==== Keyboard press and release events
 If a window controlled by our program currently holds the keyboard focus, it can receive key press and key release events. So, we should add one (or more) of the following masks when we create our window:
-
-    XCB_EVENT_MASK_KEY_PRESS     // key was pressed while any of our controlled windows had the keyboard focus
-    XCB_EVENT_MASK_KEY_RELEASE   // key was released while any of our controlled windows had the keyboard focus
+[source,c]
+....
+XCB_EVENT_MASK_KEY_PRESS     // key was pressed while any of our controlled windows had the keyboard focus
+XCB_EVENT_MASK_KEY_RELEASE   // key was released while any of our controlled windows had the keyboard focus
+....
 These generate events of the same type, which goes by two names:
+[source,c]
+....
+typedef struct {
+    uint8_t         response_type; /* The type of the event */
+    xcb_keycode_t   detail;        /* the physical key on the keyboard */
+    uint16_t        sequence;
+    xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
+    xcb_window_t    root;
+    xcb_window_t    event;
+    xcb_window_t    child;
+    int16_t         root_x;
+    int16_t         root_y;
+    int16_t         event_x;
+    int16_t         event_y;
+    uint16_t        state;
+    uint8_t         same_screen;
+} xcb_key_press_event_t;
 
-    typedef struct {
-        uint8_t         response_type; /* The type of the event */
-        xcb_keycode_t   detail;        /* the physical key on the keyboard */
-        uint16_t        sequence;
-        xcb_timestamp_t time;          /* Time, in milliseconds the event took place in */
-        xcb_window_t    root;
-        xcb_window_t    event;
-        xcb_window_t    child;
-        int16_t         root_x;
-        int16_t         root_y;
-        int16_t         event_x;
-        int16_t         event_y;
-        uint16_t        state;
-        uint8_t         same_screen;
-    } xcb_key_press_event_t;
+typedef xcb_key_press_event_t  xcb_key_release_event_t;
+....
 
-    typedef xcb_key_press_event_t  xcb_key_release_event_t;
 TODO: Talk about getting the ASCII code from the key code.
 
 === X events: a complete example
