@@ -3,34 +3,49 @@
 :toc-title: 目录
 :numbered:
 
-== Using colors to paint the rainbow
-Up until now, all our painting operation were done using black and white. We will (finally) see now how to draw using colors.
+== 用颜色绘制彩虹
+到目前为止，我们所有的绘画操作都是使用黑白完成的。 现在，我们终于能看到如何使用颜色进行绘制。
 
-=== Color maps
-In the beginning, there were not enough colors. Screen controllers could only support a limited number of colors simultaneously (initially 2, then 4, 16 and 256). Because of this, an application could not just ask to draw in a "light purple-red" color, and expect that color to be available. Each application allocated the colors it needed, and when all the color entries (4, 16, 256 colors) were in use, the next color allocation would fail.
+=== 颜色映射
+最初，并没有足够多的颜色。屏幕控制器只能同时支持有限数量的颜色（最初是2种，然后是4种，16种和256种）。
+因此，应用程序不能只要求绘制“浅紫红色”颜色，并期望该颜色可用。
+每个应用程序分配了所需的颜色，并且在所有颜色条目（4、16、256种颜色）都被使用时，下一次颜色分配将失败。
 
-Thus, the notion of "a color map" was introduced. A color map is a table whose size is the same as the number of simultaneous colors a given screen controller. Each entry contained the RGB (Red, Green and Blue) values of a different color (all colors can be drawn using some combination of red, green and blue). When an application wants to draw on the screen, it does not specify which color to use. Rather, it specifies which color entry of some color map to be used during this drawing. Change the value in this color map entry and the drawing will use a different color.
+于是就引入了 “颜色映射” 的概念。颜色映射是一个表，其大小与给定屏幕控制器能同时显示的颜色数量相同。
+每个条目包含不同颜色的RGB(红色、绿色和蓝色)值(可以使用红色、绿色和蓝色的组合绘制所有颜色)。
+当应用程序想要在屏幕上绘图时，它不会指定使用哪种颜色。相反，它指定在此绘图期间使用颜色映射的哪个颜色项。
+更改此颜色映射项中的值，绘图将使用不同的颜色。
 
-In order to be able to draw using colors that got something to do with what the programmer intended, color map allocation functions are supplied. You could ask to allocate entry for a color with a set of RGB values. If one already existed, you would get its index in the table. If none existed, and the table was not full, a new cell would be allocated to contain the given RGB values, and its index returned. If the table was full, the procedure would fail. You could then ask to get a color map entry with a color that is closest to the one you were asking for. This would mean that the actual drawing on the screen would be done using colors similar to what you wanted, but not the same.
+为了能够使用程序员想用的颜色进行绘制，我们提供了颜色映射分配功能。
+您可以要求为具有一组RGB值的颜色分配条目。 如果已经存在，则将在表中获取其索引。
+如果不存在，并且表未满，则将分配一个新单元格以包含给定的RGB值，并返回其索引。如果表已满，则该过程将失败。
+然后，您可以要求获得一个颜色映射表项，该表项的颜色与您要的颜色最接近。
+这意味着屏幕上的实际绘图将使用与您想要的颜色相似但不相同的颜色进行。
 
-On today's more modern screens where one runs an X server with support for 16 million colors, this limitation looks a little silly, but remember that there are still older computers with older graphics cards out there. Using color map, support for these screen becomes transparent to you. On a display supporting 16 million colors, any color entry allocation request would succeed. On a display supporting a limited number of colors, some color allocation requests would return similar colors. It won't look as good, but your application would still work.
+在当今X服务器运行着支持1600万种颜色的更现代的屏幕上，此限制看起来有些愚蠢，但请记住，仍然有一些旧计算机配备了旧显卡。
+使用颜色图，对这些屏幕的支持对您来说是透明的。在支持1600万种颜色的显示器上，任何颜色输入分配请求都会成功。
+在支持有限数量的颜色的显示器上，某些颜色分配请求将返回相似的颜色。
+这看起来不太好，但是您的应用程序仍然可以运行。
 
-=== Allocating and freeing Color Maps
-When you draw using XCB, you can choose to use the standard color map of the screen your window is displayed on, or you can allocate a new color map and apply it to a window. In the latter case, each time the mouse moves onto your window, the screen color map will be replaced by your window's color map, and you'll see all the other windows on screen change their colors into something quite bizarre. In fact, this is the effect you get with X applications that use the "-install" command line option.
+=== 分配和释放颜色映射
+在你使用XCB进行绘图的时候，你可以选择使用你显示出来窗口的屏幕提供的标准颜色映射，或者你也可以重新分配分配一个新的颜色映射并应用到你的窗口上面。
+在后一种情况下，每次将鼠标移到窗口上时，屏幕颜色映射都会被窗口的颜色映射替换，您将看到屏幕上所有其他窗口的颜色都变得非常奇怪。 实际上，这是使用“ -install”命令行选项的X应用程序所获得的效果。
 
-In XCB, a color map is (as often in X) an Id:
+在XCB中，颜色映射是（通常在X中）一个ID：
 [source,c]
 ....
 typedef uint32_t xcb_colormap_t;
 ....
-In order to access the screen's default color map, you just have to retrieve the default_colormap field of the xcb_screen_t structure:
+
+为了获取屏幕默认的颜色映射，你仅仅需要检索 `xcb_screen_t` 结构体的 `default_colormap` 字段：
 [source,c]
 ....
 xcb_colormap_t colormap = screen->default_colormap;
 ....
-This will return the color map used by default on the first screen (again, remember that an X server may support several different screens, each of which might have its own resources).
 
-The other option, that of allocating a new colormap, works as follows. We first ask the X server to give an Id to our color map, with this function:
+这将返回默认情况下在第一个屏幕上使用的颜色映射（同样，请记住X服务器可能支持几个不同的屏幕，每个屏幕可能都有自己的资源）。
+
+另一种选择是分配新的颜色映射，其工作方式如下。 我们首先要求X服务器使用以下功能为我们的颜色映射提供ID：
 [source,c]
 ....
 xcb_colormap_t
@@ -46,7 +61,7 @@ xcb_create_colormap (xcb_connection_t *connection,
                         xcb_window_t      window,  /* Window on whose screen the colormap will be created */
                         xcb_visualid_t    visual ); /* Id of the visual supported by the screen */
 ....
-Here is an example of creation of a new color map:
+下面有一个创建新的颜色映射示例：
 [source,c]
 ....
 #include <xcb/xcb.h>
@@ -71,16 +86,17 @@ main ()
 }
 ....
 
-Note that the window parameter is only used to allow the X server to create the color map for the given screen. We can then use this color map for any window drawn on the same screen.
+NOTE: window参数仅用于允许X服务器为给定屏幕创建颜色图。 然后，我们可以将此颜色映射用于在同一屏幕上绘制的任何窗口。
 
-To free a color map, it suffices to use this function:
+为了释放颜色映射,用下面这个函数就足够了：
 [source,c]
 ....
 xcb_void_cookie_t
 xcb_free_colormap (xcb_connection_t  *connection,
                     xcb_colormap_t     colormapId );
 ....
-Comparison Xlib/XCB:
+
+Xlib/XCB比较:
 
 - XCreateColormap () =>
 [source,c]
@@ -95,8 +111,8 @@ xcb_create_colormap ()
 xcb_free_colormap () 
 ....
 
-=== Allocating and freeing a color entry
-Once we got access to some color map, we can start allocating colors. The informations related to a color are stored in the following structure:
+=== 分配和释放颜色条目
+一旦获取到了颜色映射，就可以开始分配颜色。与颜色有关的信息以以下结构存储：
 [source,c]
 ....
 typedef struct {
@@ -112,7 +128,7 @@ typedef struct {
 } xcb_alloc_color_reply_t;
 ....
 
-XCB supplies these two functions to fill it:
+XCB提供了以下两个函数来填充它：
 [source,c]
 ....
 xcb_alloc_color_cookie_t
@@ -128,7 +144,7 @@ xcb_alloc_color_reply (xcb_connection_t          *connection,
                         xcb_generic_error_t      **e );
 ....
 
-The function xcb_alloc_color() takes the 3 RGB components as parameters (red, green and blue). Here is an example of using these functions:
+函数 `xcb_alloc_color()` 将3个RGB分量作为参数（红色，绿色和蓝色）。这是使用这些函数的示例：
 [source,c]
 ....
 #include <malloc.h>
@@ -167,14 +183,14 @@ main ()
 }
 ....
 
-TODO: Talk about freeing colors.
+TODO: 谈谈关于颜色释放。
 
-== X Bitmaps and Pixmaps
+== X位图和像素图
 One thing many applications need to do is display images. In the X world, this is done using bitmaps and pixmaps. We have already seen some usage of them when setting an icon for our application. Lets study them further and see how to draw these images inside a window along side the simple primitives and text we have seen so far.
 
 One thing to note before delving further is that neither XCB nor Xlib supplies a means of manipulating popular image formats such as gif, png, jpeg or tiff. For display in X, these formats must be converted into X bitmaps or X pixmaps using higher-level graphics libraries.
 
-=== What are X bitmaps and pixmaps?
+=== 什么是X位图和像素图?
 An X bitmap is a two-color image stored in a format specific to the X window system. When stored in a file, the bitmap data looks like a C source file. It contains members defining the width and the height of the bitmap, an array containing the bit values of the bitmap (the size of the array is (width+7) / 8 * height) and the bit and byte order are LSB), and an optional hot-spot location that is explained in the section on mouse cursors.
 
 An X pixmap is a format used to stored images in the memory of an X server. This format can store both black and white images (such as x bitmaps) as well as color images. It is the only image format supported by the X protocol and any image to be drawn on screen should be first translated into this format.
@@ -191,7 +207,7 @@ typedef uint32_t xcb_drawable_t;
 ....
 While, in Xlib, there is no specific difference between a Drawable, a Pixmap or a Window---all are 32 bit long integers---XCB wraps all these different IDs in structures to provide some measure of type-safety.
 
-=== Creating a pixmap
+=== 创建像素图
 Sometimes we want to create an un-initialized pixmap so that we can later draw into it. This is useful for image drawing programs (creating a new empty canvas will cause the creation of a new pixmap on which the drawing can be stored). It is also useful when reading various image formats: we load the image data into memory, create a pixmap on the server, and then draw the decoded image data onto that pixmap.
 
 To create a new pixmap, we first ask the X server to give an Id to our pixmap with this function:
@@ -213,7 +229,7 @@ xcb_create_pixmap (xcb_connection_t *connection,
 ....
 TODO: Explain the drawable parameter, and give an example (like xpoints.c)
 
-=== 3. Drawing a pixmap in a window
+=== 在窗口上绘制像素图
 Once we got a handle to a pixmap, we can draw it on some window using the following function:
 [source,c]
 ....
@@ -234,7 +250,7 @@ As you can see, we could copy the whole pixmap as well as only a given rectangle
 
 One important note should be made: it is possible to create pixmaps with different depths on the same screen. When we perform copy operations (a pixmap onto a window, etc), we should make sure that both source and target have the same depth. If they have a different depth, the operation will fail. The exception to this is if we copy a specific bit plane of the source pixmap using xcb_copy_plane(). In such an event, we can copy a specific plane to the target window (in actuality, setting a specific bit in the color of each pixel copied). This can be used to generate strange graphic effects in a window, but that is beyond the scope of this tutorial.
 
-=== Freeing a pixmap
+=== 释放像素图
 Finally, when we are done using a given pixmap, we should free it, in order to free resources of the X server. This is done using this function:
 [source,c]
 ....
@@ -242,6 +258,7 @@ xcb_void_cookie_t
 xcb_free_pixmap (xcb_connection_t *connection,
                     xcb_pixmap_t pixmap );
 ....
+
 TODO: Give an example, or a link to xpoints.c
 
 Links: link:tutorial.adoc[tutorial]

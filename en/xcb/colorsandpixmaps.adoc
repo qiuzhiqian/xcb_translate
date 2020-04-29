@@ -212,7 +212,7 @@ xcb_create_pixmap (xcb_connection_t *connection,
 ....
 TODO: Explain the drawable parameter, and give an example (like xpoints.c)
 
-=== 3. Drawing a pixmap in a window
+=== Drawing a pixmap in a window
 Once we got a handle to a pixmap, we can draw it on some window using the following function:
 [source,c]
 ....

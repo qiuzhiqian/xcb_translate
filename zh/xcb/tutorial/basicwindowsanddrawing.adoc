@@ -41,7 +41,7 @@ xcb_void_cookie_t xcb_map_window (xcb_connection_t  *connection,
                                     xcb_window_t       window );
 ....
 
-最后，在这儿提供一份小的程序实例，这个实例会在屏幕左上角的位置创建一个大小微150x150像素的窗口：
+最后，在这儿提供一份小的程序实例，这个实例会在屏幕左上角的位置创建一个大小为150x150像素的窗口：
 [source,c]
 ....
 #include <unistd.h>      /* pause() */
