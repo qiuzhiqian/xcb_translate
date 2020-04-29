@@ -1,5 +1,6 @@
 = 事件
 :toc:
+:toc-title: 目录
 :numbered:
 
 == X 事件

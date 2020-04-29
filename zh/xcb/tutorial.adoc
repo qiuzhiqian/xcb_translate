@@ -1,5 +1,6 @@
 = Tutorial
 :toc:
+:toc-title: 目录
 :numbered:
 
 此篇教程是基于 http://cgit.freedesktop.org/xcb/libxcb/plain/doc/tutorial/index.html[这一篇]教程写的，而这一篇原始教程又是由 Guy Keren根据Xlib的教程编写的。

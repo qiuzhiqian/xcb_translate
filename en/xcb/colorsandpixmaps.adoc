@@ -38,7 +38,7 @@ xcb_generate_id (xcb_connection_t *connection);
 Then, we create the color map with
 [source,c]
 ....
-    xcb_void_cookie_t
+xcb_void_cookie_t
 xcb_create_colormap (xcb_connection_t *connection,
                         uint8_t           alloc,   /* Colormap entries to be allocated (AllocNone or AllocAll) */
                         xcb_colormap_t    mid,     /* Id of the color map */
@@ -69,6 +69,7 @@ main ()
     return 0;
 }
 ....
+
 Note that the window parameter is only used to allow the X server to create the color map for the given screen. We can then use this color map for any window drawn on the same screen.
 
 To free a color map, it suffices to use this function:
@@ -109,6 +110,7 @@ typedef struct {
     uint32_t pixel;        /* The entry in the color map, supplied by the X server */
 } xcb_alloc_color_reply_t;
 ....
+
 XCB supplies these two functions to fill it:
 [source,c]
 ....
@@ -124,6 +126,7 @@ xcb_alloc_color_reply (xcb_connection_t          *connection,
                         xcb_alloc_color_cookie_t   cookie,
                         xcb_generic_error_t      **e );
 ....
+
 The function xcb_alloc_color() takes the 3 RGB components as parameters (red, green and blue). Here is an example of using these functions:
 [source,c]
 ....
@@ -225,6 +228,7 @@ xcb_copy_area (xcb_connection_t *connection,
                 uint16_t          width,         /* pixel width of the region we want to copy */
                 uint16_t          height );      /* pixel height of the region we want to copy */
 ....
+
 As you can see, we could copy the whole pixmap as well as only a given rectangle of the pixmap. This is useful to optimize the drawing speed: we could copy only what we have modified in the pixmap.
 
 One important note should be made: it is possible to create pixmaps with different depths on the same screen. When we perform copy operations (a pixmap onto a window, etc), we should make sure that both source and target have the same depth. If they have a different depth, the operation will fail. The exception to this is if we copy a specific bit plane of the source pixmap using xcb_copy_plane(). In such an event, we can copy a specific plane to the target window (in actuality, setting a specific bit in the color of each pixel copied). This can be used to generate strange graphic effects in a window, but that is beyond the scope of this tutorial.
@@ -239,6 +243,6 @@ xcb_free_pixmap (xcb_connection_t *connection,
 ....
 TODO: Give an example, or a link to xpoints.c
 
-Links: link:../tutorial.adoc[tutorial]
+Links: link:tutorial.adoc[tutorial]
 
 Last edited Mon 02 Nov 2009 02:55:18 PM UTC

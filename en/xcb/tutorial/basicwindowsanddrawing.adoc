@@ -1,4 +1,6 @@
 = Basic windows and drawing
+:toc:
+:numbered:
 
 == Creating a basic window - the "hello world" program
 
@@ -120,7 +122,7 @@ xcb_create_window ()
 == Drawing in a window
 Drawing in a window can be done using various graphical functions (drawing pixels, lines, rectangles, etc). In order to draw in a window, we first need to define various general drawing parameters (what line width to use, which color to draw with, etc). This is done using a graphical context.
 
-=== 1. Allocating a Graphics Context
+=== Allocating a Graphics Context
 As we said, a graphical context defines several attributes to be used with the various drawing functions. For this, we define a graphical context. We can use more than one graphical context with a single window, in order to draw in multiple styles (different colors, different line widths, etc). In XCB, a Graphics Context is, as a window, characterized by an Id:
 [source,c]
 ....
@@ -176,7 +178,7 @@ xcb_generate_id ()
 xcb_create_gc ()
 ....
 
-=== 2. Changing the attributes of a Graphics Context
+=== Changing the attributes of a Graphics Context
 Once we have allocated a Graphic Context, we may need to change its attributes (for example, changing the foreground color we use to draw a line, or changing the attributes of the font we use to display strings. See Subsections Drawing with a color and Assigning a Font to a Graphic Context). This is done by using this function:
 [source,c]
 ....
@@ -219,7 +221,7 @@ TODO: set the links of the 3 subsections, once they will be written :)
 
 TODO: give an example which sets several attributes.
 
-=== 3. Drawing primitives: point, line, box, circle,...
+=== Drawing primitives: point, line, box, circle,...
 After we have created a Graphic Context, we can draw on a window using this Graphic Context, with a set of XCB functions, collectively called "drawing primitives". Let see how they are used.
 
 To draw a point, or several points, we use:
