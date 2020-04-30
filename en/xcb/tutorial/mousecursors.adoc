@@ -1,5 +1,8 @@
 = Messing with the mouse cursor
-It it possible to modify the shape of the mouse pointer (also called the X pointer) when in certain states, as we often see in programs. For example, a busy application would often display the sand clock over its main window, to give the user a visual hint that they should wait. Let's see how we can change the mouse cursor of our windows.
+:toc:
+:numbered:
+
+It is possible to modify the shape of the mouse pointer (also called the X pointer) when in certain states, as we often see in programs. For example, a busy application would often display the sand clock over its main window, to give the user a visual hint that they should wait. Let's see how we can change the mouse cursor of our windows.
 
 == Creating and destroying a mouse cursor
 There are two methods for creating cursors. One of them is by using a set of predefined cursors, that are supplied by the X server, the other is by using a user-supplied bitmap.

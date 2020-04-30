@@ -1,370 +1,392 @@
-Messing with the mouse cursor
-It it possible to modify the shape of the mouse pointer (also called the X pointer) when in certain states, as we often see in programs. For example, a busy application would often display the sand clock over its main window, to give the user a visual hint that they should wait. Let's see how we can change the mouse cursor of our windows.
+= 玩转鼠标指针
+:toc:
+:toc-title: 目录
+:numbered:
 
-1. Creating and destroying a mouse cursor
-There are two methods for creating cursors. One of them is by using a set of predefined cursors, that are supplied by the X server, the other is by using a user-supplied bitmap.
+正如我们在程序中经常看到的那样，可以在某些状态下修改鼠标指针（也称为X指针）的形状。
+例如，繁忙的应用程序通常会在其主窗口上显示一个沙漏图标，以向用户提供他们应该等待的视觉提示。
+让我们看看如何更改窗口的鼠标光标。
 
-In the first method, we use a special font named "cursor", and the function xcb_create_glyph_cursor:
+== Creating and destroying a mouse cursor
+有两种创建光标的方法。 其中一个是通过使用X服务器提供的一组预定义的游标，另一个是通过使用用户提供的位图。
 
-    xcb_void_cookie_t
-    xcb_create_glyph_cursor (xcb_connection_t *connection,
-                             xcb_cursor_t      cursorId,
-                             xcb_font_t        source_font, /* font for the source glyph */
-                             xcb_font_t        mask_font,   /* font for the mask glyph or XCB_NONE */
-                             uint16_t          source_char, /* character glyph for the source */
-                             uint16_t          mask_char,   /* character glyph for the mask */
-                             uint16_t          fore_red,    /* red value for the foreground of the source */
-                             uint16_t          fore_green,  /* green value for the foreground of the source */
-                             uint16_t          fore_blue,   /* blue value for the foreground of the source */
-                             uint16_t          back_red,    /* red value for the background of the source */
-                             uint16_t          back_green,  /* green value for the background of the source */
-                             uint16_t          back_blue ); /* blue value for the background of the source */
-TODO: Describe source_char and mask_char, for example by giving an example on how to get the values. There is a list there: X Font Cursors
+在第一种方法中，我们使用一种特殊的“cursor”字体和xcb_create_glyph_cursor函数：
+[source,c]
+....
+xcb_void_cookie_t
+xcb_create_glyph_cursor (xcb_connection_t *connection,
+                            xcb_cursor_t      cursorId,
+                            xcb_font_t        source_font, /* font for the source glyph */
+                            xcb_font_t        mask_font,   /* font for the mask glyph or XCB_NONE */
+                            uint16_t          source_char, /* character glyph for the source */
+                            uint16_t          mask_char,   /* character glyph for the mask */
+                            uint16_t          fore_red,    /* red value for the foreground of the source */
+                            uint16_t          fore_green,  /* green value for the foreground of the source */
+                            uint16_t          fore_blue,   /* blue value for the foreground of the source */
+                            uint16_t          back_red,    /* red value for the background of the source */
+                            uint16_t          back_green,  /* green value for the background of the source */
+                            uint16_t          back_blue ); /* blue value for the background of the source */
+....
 
-So we first open that font (see Loading a Font) and create the new cursor. As for every X resource, we have to ask for an X id with xcb_generate_id first:
+TODO: 例如，通过提供如何获取值的示例来描述source_char和mask_char。 那里有一个列表：X字体光标
+
+因此，我们首先打开该字体（请参阅加载字体）并创建新的光标。 对于每个X资源，我们必须先使用xcb_generate_id要求一个X id：
+[source,c]
+....
+xcb_font_t font = xcb_generate_id (connection);
+xcb_open_font (connection, font, strlen ("cursor"), "cursor");
+
+cursor = xcb_generate_id (connection);
+xcb_create_glyph_cursor (connection,
+                            cursor,            /* cursor id  */
+                            source_font,       /* source glyph font */
+                            mask_font,         /* mask glyph font */
+                            58,                /* source character glyph */
+                            58 + 1,            /* mask character glyph */
+                            0, 0, 0, 0, 0, 0); /* r b g r b g */
+....
+我们通过将source_font参数指定为58并将mask_font指定为58 + 1创建了光标“右手”。
+
+通过这个函数来释放光标资源：
+[source,c]
+....
+xcb_void_cookie_t
+xcb_free_cursor (xcb_connection_t *connection,
+                    xcb_cursor_t      cursor );
+....
+
+在第二种方法中，我们通过使用一对位深度为1的像素图（即两色像素图）来创建新的光标。
+一个像素图定义了光标的形状，而另一个像素图则作为一个掩码，用于指定将实际绘制光标的哪些像素（其余像素将是透明的）。
+
+TODO: 提供一个例子。
+
+== 设置窗口的光标
+一旦创建了光标，就可以使用xcb_change_window_attributes方法和XCB_CW_CURSOR属性来修改窗口的光标：
+[source,c]
+....
+/* ...assume cursor created here... */
+
+uint32_t mask       = XCB_CW_CURSOR;
+uint32_t value_list = cursor;
+xcb_change_window_attributes (connection, window, mask, &value_list);
+....
+
+当然这个光标和字体资源必须要释放。
+
+== Complete example
+以下示例显示带有按钮的窗口。进入窗口时，窗口光标将变为箭头。 单击一次按钮后，光标将变为手形。 再次单击该按钮时，窗口光标将变回为箭头。Esc键退出应用程序。
+[source,c]
+....
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <inttypes.h>
+
+#include <xcb/xcb.h>
+
+#define WIDTH 300 
+#define HEIGHT 150 
+
+static void testCookie(xcb_void_cookie_t, xcb_connection_t*, char *); 
+static void drawButton(xcb_connection_t*, xcb_screen_t*, xcb_window_t, int16_t, int16_t, const char*);
+static void drawText(xcb_connection_t*, xcb_screen_t*, xcb_window_t, int16_t, int16_t, const char*);
+static xcb_gc_t getFontGC(xcb_connection_t*, xcb_screen_t*, xcb_window_t, const char*);
+static void setCursor (xcb_connection_t*, xcb_screen_t*, xcb_window_t, int);
+
+/*  
+*/  
+static void
+testCookie (xcb_void_cookie_t cookie,
+            xcb_connection_t *connection,
+            char *errMessage )
+{   
+    xcb_generic_error_t *error = xcb_request_check (connection, cookie);
+    if (error) {
+        fprintf (stderr, "ERROR: %s : %"PRIu8"\n", errMessage , error->error_code);
+        xcb_disconnect (connection);
+        exit (-1);
+    }   
+}   
+
+/*  
+*/  
+static void
+drawButton (xcb_connection_t *connection,
+            xcb_screen_t     *screen,
+            xcb_window_t      window,
+            int16_t           x1, 
+            int16_t           y1, 
+            const char       *label )
+{   
+    uint8_t length = strlen (label);
+    int16_t inset = 2;
+    int16_t width = 7 * length + 2 * (inset + 1); 
+    int16_t height = 13 + 2 * (inset + 1); 
+
+    xcb_point_t points[5];
+    points[0].x = x1; 
+    points[0].y = y1; 
+    points[1].x = x1 + width;
+    points[1].y = y1; 
+    points[2].x = x1 + width;
+    points[2].y = y1 - height;
+    points[3].x = x1; 
+    points[3].y = y1 - height;
+    points[4].x = x1; 
+    points[4].y = y1; 
+
+    xcb_gcontext_t gc = getFontGC (connection, screen, window, "fixed");
+    xcb_void_cookie_t lineCookie = xcb_poly_line_checked (connection,
+                                                            XCB_COORD_MODE_ORIGIN,
+                                                            window,
+                                                            gc,
+                                                            5,
+                                                            points );
+    testCookie (lineCookie, connection, "can't draw lines");
+
+    xcb_void_cookie_t textCookie = xcb_image_text_8_checked (connection,
+                                                                length,
+                                                                window,
+                                                                gc,
+                                                                x1 + inset + 1,
+                                                                y1 - inset - 1,
+                                                                label );
+    testCookie (textCookie, connection, "can't paste text");
+
+    xcb_void_cookie_t gcCookie = xcb_free_gc (connection, gc);
+    testCookie (gcCookie, connection, "can't free gc");
+}
+
+/*
+*/
+static void
+drawText (xcb_connection_t *connection,
+            xcb_screen_t     *screen,
+            xcb_window_t      window,
+            int16_t           x1,
+            int16_t           y1,
+            const char       *label )
+{
+
+    xcb_gcontext_t gc = getFontGC (connection, screen, window, "fixed");
+    xcb_void_cookie_t textCookie = xcb_image_text_8_checked (connection,
+                                                                strlen (label),
+                                                                window,
+                                                                gc,
+                                                                x1,
+                                                                y1,
+                                                                label );
+    testCookie(textCookie, connection, "can't paste text");
+
+    xcb_void_cookie_t gcCookie = xcb_free_gc (connection, gc);
+    testCookie (gcCookie, connection, "can't free gc");
+}
+
+/*
+*/
+static xcb_gc_t
+getFontGC (xcb_connection_t *connection,
+            xcb_screen_t     *screen,
+            xcb_window_t      window,
+            const char       *fontName )
+{
 
     xcb_font_t font = xcb_generate_id (connection);
-    xcb_open_font (connection, font, strlen ("cursor"), "cursor");
+    xcb_void_cookie_t fontCookie = xcb_open_font_checked (connection,
+                                                            font,
+                                                            strlen (fontName),
+                                                            fontName );
+    testCookie (fontCookie, connection, "can't open font");
 
-    cursor = xcb_generate_id (connection);
+    xcb_gcontext_t gc = xcb_generate_id (connection);
+    uint32_t  mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_FONT;
+    uint32_t value_list[3];
+    value_list[0] = screen->black_pixel;
+    value_list[1] = screen->white_pixel;
+    value_list[2] = font;
+
+    xcb_void_cookie_t gcCookie = xcb_create_gc_checked (connection,
+                                                        gc,
+                                                        window,
+                                                        mask,
+                                                        value_list );
+    testCookie (gcCookie, connection, "can't create gc");
+
+    fontCookie = xcb_close_font_checked (connection, font);
+    testCookie (fontCookie, connection, "can't close font");
+
+    return gc;
+}
+
+/*
+*/
+static void
+setCursor (xcb_connection_t *connection,
+            xcb_screen_t     *screen,
+            xcb_window_t      window,
+            int               cursorId )
+{
+    xcb_font_t font = xcb_generate_id (connection);
+    xcb_void_cookie_t fontCookie = xcb_open_font_checked (connection,
+                                                            font,
+                                                            strlen ("cursor"),
+                                                            "cursor" );
+    testCookie (fontCookie, connection, "can't open font");
+
+    xcb_cursor_t cursor = xcb_generate_id (connection);
     xcb_create_glyph_cursor (connection,
-                             cursor,            /* cursor id  */
-                             source_font,       /* source glyph font */
-                             mask_font,         /* mask glyph font */
-                             58,                /* source character glyph */
-                             58 + 1,            /* mask character glyph */
-                             0, 0, 0, 0, 0, 0); /* r b g r b g */
-We have created the cursor "right hand" by specifying 58 to the source_font argument and 58 + 1 to the mask_font.
+                                cursor,
+                                font,
+                                font,
+                                cursorId,
+                                cursorId + 1,
+                                0, 0, 0, 0, 0, 0 );
 
-The cursor is freed by using the function:
+    xcb_gcontext_t gc = xcb_generate_id (connection);
 
-    xcb_void_cookie_t
-    xcb_free_cursor (xcb_connection_t *connection,
-                     xcb_cursor_t      cursor );
-In the second method, we create a new cursor by using a pair of pixmaps with bit depth of one (that is, two-color pixmaps). One pixmap defines the shape of the cursor while the other works as a mask that specifies which pixels of the cursor will be actually drawn (the rest of the pixels will be transparent).
+    uint32_t mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_FONT;
+    uint32_t values_list[3];
+    values_list[0] = screen->black_pixel;
+    values_list[1] = screen->white_pixel;
+    values_list[2] = font;
 
-TODO: give an example.
+    xcb_void_cookie_t gcCookie = xcb_create_gc_checked (connection, gc, window, mask, values_list);
+    testCookie (gcCookie, connection, "can't create gc");
 
-2. Setting a window's mouse cursor
-Once the cursor is created, we can modify the cursor of our window by using xcb_change_window_attributes and using the XCB_CW_CURSOR attribute:
+    mask = XCB_CW_CURSOR;
+    uint32_t value_list = cursor;
+    xcb_change_window_attributes (connection, window, mask, &value_list);
 
-        /* ...assume cursor created here... */
+    xcb_free_cursor (connection, cursor);
 
-        uint32_t mask       = XCB_CW_CURSOR;
-        uint32_t value_list = cursor;
-        xcb_change_window_attributes (connection, window, mask, &value_list);
-Of course, the cursor and the font must be freed.
+    fontCookie = xcb_close_font_checked (connection, font);
+    testCookie (fontCookie, connection, "can't close font");
+}
 
-3. Complete example
-The following example displays a window with a button. When entering the window, the window cursor is changed to an arrow. When clicking once on the button, the cursor is changed to a hand. When clicking again on the button, the cursor window gets back to the arrow. The Esc key exits the application.
-
-    #include <stdlib.h>
-    #include <stdio.h>
-    #include <string.h>
-    #include <inttypes.h>
-
-    #include <xcb/xcb.h>
-
-    #define WIDTH 300 
-    #define HEIGHT 150 
-
-    static void testCookie(xcb_void_cookie_t, xcb_connection_t*, char *); 
-    static void drawButton(xcb_connection_t*, xcb_screen_t*, xcb_window_t, int16_t, int16_t, const char*);
-    static void drawText(xcb_connection_t*, xcb_screen_t*, xcb_window_t, int16_t, int16_t, const char*);
-    static xcb_gc_t getFontGC(xcb_connection_t*, xcb_screen_t*, xcb_window_t, const char*);
-    static void setCursor (xcb_connection_t*, xcb_screen_t*, xcb_window_t, int);
-
-    /*  
-    */  
-    static void
-    testCookie (xcb_void_cookie_t cookie,
-                xcb_connection_t *connection,
-                char *errMessage )
-    {   
-        xcb_generic_error_t *error = xcb_request_check (connection, cookie);
-        if (error) {
-            fprintf (stderr, "ERROR: %s : %"PRIu8"\n", errMessage , error->error_code);
-            xcb_disconnect (connection);
-            exit (-1);
-        }   
-    }   
-
-    /*  
-    */  
-    static void
-    drawButton (xcb_connection_t *connection,
-                xcb_screen_t     *screen,
-                xcb_window_t      window,
-                int16_t           x1, 
-                int16_t           y1, 
-                const char       *label )
-    {   
-        uint8_t length = strlen (label);
-        int16_t inset = 2;
-        int16_t width = 7 * length + 2 * (inset + 1); 
-        int16_t height = 13 + 2 * (inset + 1); 
-
-        xcb_point_t points[5];
-        points[0].x = x1; 
-        points[0].y = y1; 
-        points[1].x = x1 + width;
-        points[1].y = y1; 
-        points[2].x = x1 + width;
-        points[2].y = y1 - height;
-        points[3].x = x1; 
-        points[3].y = y1 - height;
-        points[4].x = x1; 
-        points[4].y = y1; 
-
-        xcb_gcontext_t gc = getFontGC (connection, screen, window, "fixed");
-        xcb_void_cookie_t lineCookie = xcb_poly_line_checked (connection,
-                                                              XCB_COORD_MODE_ORIGIN,
-                                                              window,
-                                                              gc,
-                                                              5,
-                                                              points );
-        testCookie (lineCookie, connection, "can't draw lines");
-
-        xcb_void_cookie_t textCookie = xcb_image_text_8_checked (connection,
-                                                                 length,
-                                                                 window,
-                                                                 gc,
-                                                                 x1 + inset + 1,
-                                                                 y1 - inset - 1,
-                                                                 label );
-        testCookie (textCookie, connection, "can't paste text");
-
-        xcb_void_cookie_t gcCookie = xcb_free_gc (connection, gc);
-        testCookie (gcCookie, connection, "can't free gc");
+/*
+*/
+int
+main ()
+{
+    /* get the connection */
+    int screenNum;
+    xcb_connection_t *connection = xcb_connect (NULL, &screenNum);
+    if (!connection) {
+        fprintf (stderr, "ERROR: can't connect to an X server\n");
+        return -1;
     }
 
-    /*
-    */
-    static void
-    drawText (xcb_connection_t *connection,
-              xcb_screen_t     *screen,
-              xcb_window_t      window,
-              int16_t           x1,
-              int16_t           y1,
-              const char       *label )
-    {
+    /* get the current screen */
 
-        xcb_gcontext_t gc = getFontGC (connection, screen, window, "fixed");
-        xcb_void_cookie_t textCookie = xcb_image_text_8_checked (connection,
-                                                                 strlen (label),
-                                                                 window,
-                                                                 gc,
-                                                                 x1,
-                                                                 y1,
-                                                                 label );
-        testCookie(textCookie, connection, "can't paste text");
+    xcb_screen_iterator_t iter = xcb_setup_roots_iterator (xcb_get_setup (connection));
 
-        xcb_void_cookie_t gcCookie = xcb_free_gc (connection, gc);
-        testCookie (gcCookie, connection, "can't free gc");
+    /* we want the screen at index screenNum of the iterator */
+    for (int i = 0; i < screenNum; ++i) {
+        xcb_screen_next (&iter);
     }
 
-    /*
-    */
-    static xcb_gc_t
-    getFontGC (xcb_connection_t *connection,
-               xcb_screen_t     *screen,
-               xcb_window_t      window,
-               const char       *fontName )
-    {
+    xcb_screen_t *screen = iter.data;
 
-        xcb_font_t font = xcb_generate_id (connection);
-        xcb_void_cookie_t fontCookie = xcb_open_font_checked (connection,
-                                                              font,
-                                                              strlen (fontName),
-                                                              fontName );
-        testCookie (fontCookie, connection, "can't open font");
-
-        xcb_gcontext_t gc = xcb_generate_id (connection);
-        uint32_t  mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_FONT;
-        uint32_t value_list[3];
-        value_list[0] = screen->black_pixel;
-        value_list[1] = screen->white_pixel;
-        value_list[2] = font;
-
-        xcb_void_cookie_t gcCookie = xcb_create_gc_checked (connection,
-                                                            gc,
-                                                            window,
-                                                            mask,
-                                                            value_list );
-        testCookie (gcCookie, connection, "can't create gc");
-
-        fontCookie = xcb_close_font_checked (connection, font);
-        testCookie (fontCookie, connection, "can't close font");
-
-        return gc;
+    if (!screen) {
+        fprintf (stderr, "ERROR: can't get the current screen\n");
+        xcb_disconnect (connection);
+        return -1;
     }
 
-    /*
-    */
-    static void
-    setCursor (xcb_connection_t *connection,
-                xcb_screen_t     *screen,
-                xcb_window_t      window,
-                int               cursorId )
-    {
-        xcb_font_t font = xcb_generate_id (connection);
-        xcb_void_cookie_t fontCookie = xcb_open_font_checked (connection,
-                                                              font,
-                                                              strlen ("cursor"),
-                                                              "cursor" );
-        testCookie (fontCookie, connection, "can't open font");
 
-        xcb_cursor_t cursor = xcb_generate_id (connection);
-        xcb_create_glyph_cursor (connection,
-                                 cursor,
-                                 font,
-                                 font,
-                                 cursorId,
-                                 cursorId + 1,
-                                 0, 0, 0, 0, 0, 0 );
+    /* create the window */
 
-        xcb_gcontext_t gc = xcb_generate_id (connection);
+    xcb_window_t window = xcb_generate_id (connection);
+    uint32_t mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
+    uint32_t values[2];
+    values[0] = screen->white_pixel;
+    values[1] = XCB_EVENT_MASK_KEY_RELEASE |
+                XCB_EVENT_MASK_BUTTON_PRESS |
+                XCB_EVENT_MASK_EXPOSURE |
+                XCB_EVENT_MASK_POINTER_MOTION;
 
-        uint32_t mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_FONT;
-        uint32_t values_list[3];
-        values_list[0] = screen->black_pixel;
-        values_list[1] = screen->white_pixel;
-        values_list[2] = font;
+    xcb_void_cookie_t windowCookie = xcb_create_window_checked (connection,
+                                                                screen->root_depth,
+                                                                window,
+                                                                screen->root,
+                                                                20, 200, WIDTH, HEIGHT,
+                                                                0,
+                                                                XCB_WINDOW_CLASS_INPUT_OUTPUT,
+                                                                screen->root_visual,
+                                                                mask, values );
+    testCookie (windowCookie, connection, "can't create window");
 
-        xcb_void_cookie_t gcCookie = xcb_create_gc_checked (connection, gc, window, mask, values_list);
-        testCookie (gcCookie, connection, "can't create gc");
+    xcb_void_cookie_t mapCookie = xcb_map_window_checked (connection, window);
+    testCookie (mapCookie, connection, "can't map window");
 
-        mask = XCB_CW_CURSOR;
-        uint32_t value_list = cursor;
-        xcb_change_window_attributes (connection, window, mask, &value_list);
+    setCursor (connection, screen, window, 68);
 
-        xcb_free_cursor (connection, cursor);
+    xcb_flush(connection);
 
-        fontCookie = xcb_close_font_checked (connection, font);
-        testCookie (fontCookie, connection, "can't close font");
-    }
+    /* event loop */
 
-    /*
-    */
-    int
-    main ()
-    {
-        /* get the connection */
-        int screenNum;
-        xcb_connection_t *connection = xcb_connect (NULL, &screenNum);
-        if (!connection) {
-            fprintf (stderr, "ERROR: can't connect to an X server\n");
-            return -1;
-        }
+    uint8_t isHand = 0;
 
-        /* get the current screen */
+    while (1) {
+        xcb_generic_event_t *event = xcb_poll_for_event (connection);
+        if (event) {
+            switch (event->response_type & ~0x80) {
+                case XCB_EXPOSE: {
+                    char *text = "click here to change cursor";
+                    drawButton (connection,
+                                screen,
+                                window,
+                                (WIDTH - 7 * strlen(text)) / 2,
+                                (HEIGHT - 16) / 2,
+                                text );
 
-        xcb_screen_iterator_t iter = xcb_setup_roots_iterator (xcb_get_setup (connection));
+                    text = "Press ESC key to exit...";
+                    drawText (connection,
+                                screen,
+                                window,
+                                10,
+                                HEIGHT - 10,
+                                text );
+                    break;
+                }
+                case XCB_BUTTON_PRESS: {
+                    xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
 
-        /* we want the screen at index screenNum of the iterator */
-        for (int i = 0; i < screenNum; ++i) {
-            xcb_screen_next (&iter);
-        }
-
-        xcb_screen_t *screen = iter.data;
-
-        if (!screen) {
-            fprintf (stderr, "ERROR: can't get the current screen\n");
-            xcb_disconnect (connection);
-            return -1;
-        }
-
-
-        /* create the window */
-
-        xcb_window_t window = xcb_generate_id (connection);
-        uint32_t mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-        uint32_t values[2];
-        values[0] = screen->white_pixel;
-        values[1] = XCB_EVENT_MASK_KEY_RELEASE |
-                    XCB_EVENT_MASK_BUTTON_PRESS |
-                    XCB_EVENT_MASK_EXPOSURE |
-                    XCB_EVENT_MASK_POINTER_MOTION;
-
-        xcb_void_cookie_t windowCookie = xcb_create_window_checked (connection,
-                                                                    screen->root_depth,
-                                                                    window,
-                                                                    screen->root,
-                                                                    20, 200, WIDTH, HEIGHT,
-                                                                    0,
-                                                                    XCB_WINDOW_CLASS_INPUT_OUTPUT,
-                                                                    screen->root_visual,
-                                                                    mask, values );
-        testCookie (windowCookie, connection, "can't create window");
-
-        xcb_void_cookie_t mapCookie = xcb_map_window_checked (connection, window);
-        testCookie (mapCookie, connection, "can't map window");
-
-        setCursor (connection, screen, window, 68);
-
-        xcb_flush(connection);
-
-        /* event loop */
-
-        uint8_t isHand = 0;
-
-        while (1) {
-            xcb_generic_event_t *event = xcb_poll_for_event (connection);
-            if (event) {
-                switch (event->response_type & ~0x80) {
-                    case XCB_EXPOSE: {
-                        char *text = "click here to change cursor";
-                        drawButton (connection,
-                                    screen,
-                                    window,
-                                    (WIDTH - 7 * strlen(text)) / 2,
-                                    (HEIGHT - 16) / 2,
-                                    text );
-
-                        text = "Press ESC key to exit...";
-                        drawText (connection,
-                                  screen,
-                                  window,
-                                  10,
-                                  HEIGHT - 10,
-                                  text );
-                        break;
+                    int length = strlen ("click here to change cursor");
+                    if ((press->event_x >= (WIDTH - 7 * length) / 2) &&
+                            (press->event_x <= ((WIDTH - 7 * length) / 2 + 7 * length + 6)) &&
+                            (press->event_y >= (HEIGHT - 16) / 2 - 19) &&
+                            (press->event_y <= ((HEIGHT - 16) / 2))) {
+                        isHand = 1 - isHand;
                     }
-                    case XCB_BUTTON_PRESS: {
-                        xcb_button_press_event_t *press = (xcb_button_press_event_t *)event;
 
-                        int length = strlen ("click here to change cursor");
-                        if ((press->event_x >= (WIDTH - 7 * length) / 2) &&
-                                (press->event_x <= ((WIDTH - 7 * length) / 2 + 7 * length + 6)) &&
-                                (press->event_y >= (HEIGHT - 16) / 2 - 19) &&
-                                (press->event_y <= ((HEIGHT - 16) / 2))) {
-                            isHand = 1 - isHand;
-                        }
-
-                        if (isHand) {
-                            setCursor (connection, screen, window, 58);
-                        }
-                        else {
-                            setCursor (connection, screen, window, 68);
-                        }
+                    if (isHand) {
+                        setCursor (connection, screen, window, 58);
                     }
-                    case XCB_KEY_RELEASE: {
-                        xcb_key_release_event_t *kr = (xcb_key_release_event_t *)event;
-
-                        switch (kr->detail) {
-                            /* ESC */
-                            case 9:
-                                free (event);
-                                xcb_disconnect (connection);
-                                return 0;
-                        }
+                    else {
+                        setCursor (connection, screen, window, 68);
                     }
                 }
-                free (event);
-            }
-        }
+                case XCB_KEY_RELEASE: {
+                    xcb_key_release_event_t *kr = (xcb_key_release_event_t *)event;
 
-        return 0;
+                    switch (kr->detail) {
+                        /* ESC */
+                        case 9:
+                            free (event);
+                            xcb_disconnect (connection);
+                            return 0;
+                    }
+                }
+            }
+            free (event);
+        }
     }
-Links: tutorial
+
+    return 0;
+}
+....
+
+Links: link:../tutorial.adoc[tutorial]
+
 Last edited Tue 03 Dec 2013 05:20:34 AM UTC
