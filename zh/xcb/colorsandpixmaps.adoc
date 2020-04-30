@@ -186,37 +186,40 @@ main ()
 TODO: 谈谈关于颜色释放。
 
 == X位图和像素图
-One thing many applications need to do is display images. In the X world, this is done using bitmaps and pixmaps. We have already seen some usage of them when setting an icon for our application. Lets study them further and see how to draw these images inside a window along side the simple primitives and text we have seen so far.
+许多应用程序会做的一件事就是显示图像。在X世界中，这是使用位图和像素图完成的。
+在为我们的应用程序设置图标时，我们已经看到了它们的一些用法。
+让我们进一步研究它们，看看如何在窗口内沿着到目前为止我们看到的简单图元和文本绘制这些图像。
 
-One thing to note before delving further is that neither XCB nor Xlib supplies a means of manipulating popular image formats such as gif, png, jpeg or tiff. For display in X, these formats must be converted into X bitmaps or X pixmaps using higher-level graphics libraries.
+在进一步研究之前要注意的一件事是，XCB和Xlib都没有提供处理常用图像格式（例如gif，png，jpeg或tiff）的方法。
+为了在X中显示，我们必须使用更高级别的图形库将这些格式转换为X位图或X像素图。
 
 === 什么是X位图和像素图?
-An X bitmap is a two-color image stored in a format specific to the X window system. When stored in a file, the bitmap data looks like a C source file. It contains members defining the width and the height of the bitmap, an array containing the bit values of the bitmap (the size of the array is (width+7) / 8 * height) and the bit and byte order are LSB), and an optional hot-spot location that is explained in the section on mouse cursors.
+X位图是以特定于X窗口系统的格式存储的两色图像。 当存储在文件中时，位图数据看起来像C源文件。 它包含用于标识位图的宽度和高度的成员，还包含一个用来存储位图位值的数组（数组的大小为（width + 7）/ 8 * height），位和字节的顺序为LSB），以及一个可选的热点位置，这会在有关鼠标光标的部分进行说明。
 
-An X pixmap is a format used to stored images in the memory of an X server. This format can store both black and white images (such as x bitmaps) as well as color images. It is the only image format supported by the X protocol and any image to be drawn on screen should be first translated into this format.
+X像素图是一种用于将图像存储在X服务器的内存中的格式。此格式可以存储黑白图像（例如x位图）以及彩色图像。这是X协议支持的唯一图像格式，任何要在屏幕上绘制的图像都应首先转换为该格式。
 
-An X pixmap can be thought of as a window that does not appear on the screen, for many graphics operations that work on windows will also work on pixmaps. Indeed, the type of X pixmap in XCB is an Id like a window:
+可以将X像素图视为没有出现在屏幕上的窗口，因为在窗口上运行的许多图形操作也将在像素图上运行。 实际上，XCB中X像素图的类型是一个类似于窗口的ID：
 [source,c]
 ....
 typedef uint32_t xcb_pixmap_t;
 ....
-The operations that work the same on a window or a pixmap take an xcb_drawable_t argument:
+在窗口或像素图上执行的操作是一样的，这些操作采用xcb_drawable_t参数：
 [source,c]
 ....
 typedef uint32_t xcb_drawable_t;
 ....
-While, in Xlib, there is no specific difference between a Drawable, a Pixmap or a Window---all are 32 bit long integers---XCB wraps all these different IDs in structures to provide some measure of type-safety.
+在Xlib中，Drawable，Pixmap或Window之间没有特定的区别---都是32位长的整数---XCB将所有这些不同的ID包装在结构中以提供某种类型安全性。
 
 === 创建像素图
-Sometimes we want to create an un-initialized pixmap so that we can later draw into it. This is useful for image drawing programs (creating a new empty canvas will cause the creation of a new pixmap on which the drawing can be stored). It is also useful when reading various image formats: we load the image data into memory, create a pixmap on the server, and then draw the decoded image data onto that pixmap.
+有时我们想创建一个未初始化的像素图，以便后面可以使用它。 这对于图像绘制程序很有用（创建一个新的空白画布时会创建一个新的像素图，要绘制的内容可以存储在上面）。 在读取各种图像格式时，它也很有用：我们将图像数据加载到内存中，在服务器上创建一个像素图，然后将解码的图像数据绘制到该像素图上。
 
-To create a new pixmap, we first ask the X server to give an Id to our pixmap with this function:
+要创建一个新的像素图，我们首先要求X服务器使用以下函数为我们的像素图提供一个ID：
 [source,c]
 ....
 xcb_pixmap_t
 xcb_generate_id (xcb_connection_t *connection);
 ....
-Then, XCB supplies the following function to create new pixmaps:
+然后，XCB提供以下函数来创建新的像素图：
 [source,c]
 ....
 xcb_void_cookie_t
@@ -227,10 +230,10 @@ xcb_create_pixmap (xcb_connection_t *connection,
                     uint16_t          width,     /* pixel width of the window */
                     uint16_t          height );  /* pixel height of the window */
 ....
-TODO: Explain the drawable parameter, and give an example (like xpoints.c)
+TODO: 解释drawable参数, 并给出一个例子 (就像xpoints.c那样)
 
 === 在窗口上绘制像素图
-Once we got a handle to a pixmap, we can draw it on some window using the following function:
+一旦获得了像素图的句柄，就可以使用以下函数在某个窗口上绘制它：
 [source,c]
 ....
 xcb_void_cookie_t
@@ -246,12 +249,15 @@ xcb_copy_area (xcb_connection_t *connection,
                 uint16_t          height );      /* pixel height of the region we want to copy */
 ....
 
-As you can see, we could copy the whole pixmap as well as only a given rectangle of the pixmap. This is useful to optimize the drawing speed: we could copy only what we have modified in the pixmap.
+如您所见，我们可以复制整个像素图以及像素图的给定矩形区域。 这对于优化绘图速度很有用：我们只需要复制在像素图中被修改的那部分内容即可。
 
-One important note should be made: it is possible to create pixmaps with different depths on the same screen. When we perform copy operations (a pixmap onto a window, etc), we should make sure that both source and target have the same depth. If they have a different depth, the operation will fail. The exception to this is if we copy a specific bit plane of the source pixmap using xcb_copy_plane(). In such an event, we can copy a specific plane to the target window (in actuality, setting a specific bit in the color of each pixel copied). This can be used to generate strange graphic effects in a window, but that is beyond the scope of this tutorial.
+需要注意的一个重要事项是：可以在同一屏幕上创建具有不同深度的像素图。当我们执行复制操作（在窗口上的像素图等）时，我们应确保源和目标的深度相同。 
+如果深度不同，则操作将失败。 例外是如果我们使用 `xcb_copy_plane()` 复制源像素图的特定的位平面。
+在这种情况下，我们可以将特定的平面复制到目标窗口（实际上，在复制的每个像素的颜色中设置特定的位）。 
+这可用于在窗口中生成奇怪的图形效果，但这超出了本教程的范围。
 
 === 释放像素图
-Finally, when we are done using a given pixmap, we should free it, in order to free resources of the X server. This is done using this function:
+最后，使用完给定的像素图后，应释放它，以便释放X服务器的资源。 使用以下功能可以完成此操作：
 [source,c]
 ....
 xcb_void_cookie_t
@@ -259,7 +265,7 @@ xcb_free_pixmap (xcb_connection_t *connection,
                     xcb_pixmap_t pixmap );
 ....
 
-TODO: Give an example, or a link to xpoints.c
+TODO: 给定一个例子，或者xpoints.c的链接。
 
 Links: link:tutorial.adoc[tutorial]
 
